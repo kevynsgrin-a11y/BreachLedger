@@ -1,0 +1,39 @@
+name: Deploy to Cloudflare Pages
+
+# Deploys on every push to the production branch once the two repository
+# secrets exist (Settings > Secrets and variables > Actions):
+#   CLOUDFLARE_API_TOKEN   - API token with Pages:Edit (+ D1:Edit, KV:Edit for provisioning)
+#   CLOUDFLARE_ACCOUNT_ID  - the Cloudflare account id
+# and one repository variable:
+#   SITE_ORIGIN            - the live origin, e.g. https://breachledger.com
+# Without the secrets the workflow fails at the deploy step and publishes nothing.
+
+on:
+  push:
+    branches:
+      - claude/breachledger-build-y3652a
+      - main
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+        env:
+          SITE_ORIGIN: ${{ vars.SITE_ORIGIN }}
+      - name: Deploy to Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name breachledger
