@@ -52,6 +52,9 @@ function guardPage(routePath, html) {
   if (!html.startsWith('<!doctype html>')) problems.push('missing doctype');
   if (!/<title>[^<]+<\/title>/.test(html)) problems.push('missing <title>');
   if (EMOJI_RE.test(html)) problems.push('emoji found — emoji-as-iconography is banned (spec section 10)');
+  // This site ships zero JavaScript. A <script> tag in output means data
+  // reached the page unescaped — fail the build rather than publish it.
+  if (/<script/i.test(html)) problems.push('script tag in output — the site is zero-JS; this is unescaped data');
   if (problems.length) {
     throw new Error(`build guard failed for ${routePath}: ${problems.join('; ')}`);
   }
@@ -128,6 +131,25 @@ function main() {
 
   // Pages platform files
   fs.writeFileSync(path.join(OUT, 'robots.txt'), 'User-agent: *\nAllow: /\n');
+  // Security headers for Cloudflare Pages. The site ships zero JavaScript and
+  // one same-origin stylesheet, so the CSP can be maximally strict. Revisit
+  // style-src if a template ever needs an inline width (severity bars).
+  fs.writeFileSync(
+    path.join(OUT, '_headers'),
+    [
+      '/*',
+      '  X-Content-Type-Options: nosniff',
+      '  X-Frame-Options: DENY',
+      '  Referrer-Policy: strict-origin-when-cross-origin',
+      '  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()',
+      "  Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+      '  Cross-Origin-Opener-Policy: same-origin',
+      '',
+      '/assets/*',
+      '  Cache-Control: public, max-age=604800',
+      '',
+    ].join('\n')
+  );
   const notFound = require(path.join(TEMPLATES, '404.js')).render(ctx);
   guardPage('/404', notFound);
   fs.writeFileSync(path.join(OUT, '404.html'), notFound);

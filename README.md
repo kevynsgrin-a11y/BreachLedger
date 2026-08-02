@@ -38,9 +38,30 @@ npm run build           # static build -> dist/
 npm test                # unit tests (severity scoring, entity resolution)
 ```
 
-`wrangler.toml` carries placeholder D1/KV ids; run `wrangler d1 create breachledger` and
-`wrangler kv namespace create HOT` against the production account and substitute the real ids before the
-first remote deploy.
+## Deploying to production
+
+The repo is one credential away from live. With a Cloudflare API token that has Pages, D1, and KV edit
+permissions:
+
+```
+export CLOUDFLARE_API_TOKEN=...   # or `wrangler login` interactively
+export CLOUDFLARE_ACCOUNT_ID=...  # required for token auth
+npm run provision                 # creates D1 + KV, patches real ids into the
+                                  # wrangler.toml files, migrates + seeds the
+                                  # remote database, creates the Pages project
+SITE_ORIGIN=https://<domain> npm run deploy   # test + build + publish to Pages
+```
+
+Then attach the custom domain in the Cloudflare dashboard (Pages > breachledger > Custom domains) and
+redeploy with the final `SITE_ORIGIN` so canonical URLs match. Commit the patched wrangler.toml ids.
+
+Continuous deploys: `.github/workflows/deploy.yml` publishes on every push once the
+`CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets and the `SITE_ORIGIN` repository variable are set.
+
+The production build ships zero JavaScript, a strict `Content-Security-Policy` via `_headers`, canonical
+URLs, and an SVG favicon. Workers (ingest-cron, api, alerts) are deliberately **not** deployed in Phase 0 —
+there is nothing to ingest yet, and a cron that only throws would be noise. They deploy per-directory with
+`wrangler deploy` starting in Phase 1.
 
 ## Build phases
 

@@ -8,8 +8,9 @@ module.exports = {
   site: {
     name: 'BreachLedger',
     tagline: 'A public record of disclosed U.S. data breaches',
-    // Replace with the production domain at deploy time.
-    origin: 'https://breachledger.example',
+    // Set SITE_ORIGIN at build time for production (e.g. https://breachledger.com);
+    // the placeholder keeps canonical URLs obviously non-live until then.
+    origin: process.env.SITE_ORIGIN || 'https://breachledger.example',
     language: 'en-US',
   },
 

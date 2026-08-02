@@ -6,13 +6,15 @@ const { escapeHtml } = require('./markdown');
 
 function page({ site, title, description, content, route }) {
   const fullTitle = route === '/' ? `${site.name} — ${site.tagline}` : `${title} — ${site.name}`;
+  const canonical = route === '/404' ? '' : `\n<link rel="canonical" href="${site.origin}${route === '/' ? '/' : route + '/'}">`;
   return `<!doctype html>
 <html lang="${site.language}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(fullTitle)}</title>
-<meta name="description" content="${escapeHtml(description)}">
+<meta name="description" content="${escapeHtml(description)}">${canonical}
+<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>
 <body>

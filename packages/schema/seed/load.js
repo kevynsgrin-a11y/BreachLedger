@@ -97,7 +97,10 @@ function main() {
 
   const sql = lines.join('\n') + '\n';
   const outFlag = process.argv.indexOf('--out');
-  if (outFlag !== -1 && process.argv[outFlag + 1]) {
+  if (outFlag !== -1 && !process.argv[outFlag + 1]) {
+    throw new Error('--out requires a file path');
+  }
+  if (outFlag !== -1) {
     const outPath = process.argv[outFlag + 1];
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     fs.writeFileSync(outPath, sql);

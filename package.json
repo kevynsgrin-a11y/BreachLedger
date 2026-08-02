@@ -16,6 +16,8 @@
     "db:seed:remote": "node packages/schema/seed/load.js --out .wrangler/tmp-seed.sql && wrangler d1 execute breachledger --remote --file .wrangler/tmp-seed.sql",
     "db:verify": "wrangler d1 execute breachledger --local --command \"SELECT (SELECT COUNT(*) FROM data_classes) AS data_classes, (SELECT COUNT(*) FROM state_rights) AS state_rights, (SELECT COUNT(*) FROM remediation_modules) AS remediation_modules, (SELECT COUNT(*) FROM breaches) AS breaches, (SELECT COUNT(*) FROM sources) AS sources, (SELECT COUNT(*) FROM litigation) AS litigation\"",
     "db:reset": "rm -rf .wrangler/state && npm run db:migrate && npm run db:seed",
+    "provision": "node scripts/provision.js",
+    "deploy": "npm test && npm run build && wrangler pages deploy dist --project-name breachledger --commit-dirty=true",
     "test": "node --test packages/severity/score.test.js packages/ingest/entity-resolve.test.js site/templates/markdown.test.js"
   },
   "devDependencies": {

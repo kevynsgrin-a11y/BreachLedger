@@ -67,13 +67,11 @@ this component scores 0 and the breakdown says so.</p>
 <tbody>${lagRows}</tbody>
 </table>
 
-<div class="citations">
 <h2>Rubric provenance</h2>
-<ol>
-<li>The rubric is maintained in the site repository as <code>packages/severity/rubric.json</code> and applied
-by a deterministic scoring function. Scores are reproducible from the published inputs on each breach page.</li>
-</ol>
-</div>`;
+<p>The rubric is editorial policy, not a government source: it is maintained in the site repository as
+<code>packages/severity/rubric.json</code> and applied by a deterministic scoring function. Scores are
+reproducible from the published inputs on each breach page. The citation blocks used elsewhere on this site
+are reserved for government and court documents.</p>`;
 
   return page({
     site,
