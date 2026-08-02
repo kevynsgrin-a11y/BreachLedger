@@ -1,0 +1,15 @@
+{
+  "slug": "review-account-statements",
+  "title": "Review Account Statements on a Regular Schedule",
+  "applies_to": [
+    "financial_account",
+    "payment_card"
+  ],
+  "jurisdiction": "US",
+  "priority": 11,
+  "body_md": "Regular statement review finds misuse of existing accounts — activity that credit freezes and fraud alerts do not block.\n\n1. Review each bank, credit card, and payment-service statement at least monthly. Read every transaction line rather than checking the balance alone.\n2. Turn on transaction alerts by text or email so charges appear as they occur instead of at month's end.\n3. Question small unfamiliar charges as well as large ones; a small charge is sometimes used to test whether an account number works.\n4. Report unrecognized transactions to the bank or card issuer promptly. Liability protections under federal law depend in part on how quickly a problem is reported.\n5. Keep notes of what you reported, to whom, and on what date.\n\nContinue this review for at least twelve months after the breach; misuse of exposed data does not always begin immediately. General federal guidance on recognizing identity theft is at consumer.ftc.gov/articles/what-know-about-identity-theft.",
+  "source_url": "https://consumer.ftc.gov/articles/what-know-about-identity-theft",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: article exists at this exact slug. No changes needed."
+}

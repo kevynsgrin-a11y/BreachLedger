@@ -1,0 +1,14 @@
+{
+  "slug": "review-medical-records-eob",
+  "title": "Review Medical Records and Explanation of Benefits Statements",
+  "applies_to": [
+    "medical"
+  ],
+  "jurisdiction": "US",
+  "priority": 10,
+  "body_md": "Medical information exposed in a breach can be used to obtain treatment, prescriptions, or equipment in your name, which can also place another person's health details in your records.\n\n1. Read each Explanation of Benefits (EOB) statement your health plan sends. Confirm the provider, date of service, and services listed match care you actually received.\n2. Ask your health insurer for a current list of benefits paid in your name and review it the same way.\n3. Request copies of your medical records from your providers and check them for visits, prescriptions, or conditions you do not recognize.\n4. Report discrepancies to your health plan's fraud department and to the provider whose records are affected, and request corrections in writing.\n5. Watch for bills for services you did not receive and for debt-collection contacts about medical debts you do not owe; both are indicators of medical identity theft.\n\nCredit monitoring and credit freezes do not detect medical identity theft, so this review is a separate step. If records show care you did not receive, report it at IdentityTheft.gov. Background is at consumer.ftc.gov/articles/what-know-about-medical-identity-theft.",
+  "source_url": "https://consumer.ftc.gov/articles/what-know-about-medical-identity-theft",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: article exists at this exact slug; EOB review, records requests, and warning-sign guidance match the FTC article. No changes needed."
+}

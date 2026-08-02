@@ -1,0 +1,18 @@
+{
+  "slug": "recognize-breach-phishing",
+  "title": "Recognize Phishing and Phone Scams That Follow a Breach",
+  "applies_to": [
+    "email",
+    "phone",
+    "name",
+    "address",
+    "dob"
+  ],
+  "jurisdiction": "US",
+  "priority": 12,
+  "body_md": "After a breach, exposed names, email addresses, and phone numbers are often used to send messages that appear to come from the breached company, a bank, or a government agency. Knowing the pattern makes these messages straightforward to handle.\n\n1. Treat unexpected messages about the breach with care even when they include accurate personal details; accuracy does not establish that the sender is legitimate.\n2. Do not click links or open attachments in unexpected email or text messages. To check an account, type the company's web address into your browser or use its official app.\n3. Do not provide passwords, one-time codes, Social Security numbers, or card numbers to anyone who contacts you. Banks and government agencies do not call, email, or text to request them.\n4. Verify unexpected phone calls by hanging up and calling back on a number from the company's website or your statement.\n5. Forward phishing email to reportphishing@apwg.org, forward scam texts to 7726 (SPAM), and report incidents at ReportFraud.ftc.gov.\n\nFederal guidance is at consumer.ftc.gov/articles/how-recognize-avoid-phishing-scams.",
+  "source_url": "https://consumer.ftc.gov/articles/how-recognize-avoid-phishing-scams",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: the slug is confirmed as how-recognize-avoid-phishing-scams (no 'and' in the URL although the title contains it). All three reporting channels (reportphishing@apwg.org, 7726, ReportFraud.ftc.gov) appear in the FTC article. No changes needed."
+}

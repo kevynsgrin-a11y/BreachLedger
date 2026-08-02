@@ -1,0 +1,14 @@
+{
+  "slug": "replace-payment-card",
+  "title": "Cancel and Replace a Compromised Payment Card",
+  "applies_to": [
+    "payment_card"
+  ],
+  "jurisdiction": "US",
+  "priority": 4,
+  "body_md": "A payment card number exposed in a breach can be used for purchases even while the physical card remains in your possession. Replacing the card retires that number.\n\n1. Call the issuing bank or card company using the number printed on the back of the card or on a recent statement. Report that the card number was exposed in a data breach and request that the card be canceled and reissued with a new number.\n2. Review recent transactions on the account and report any charge you do not recognize. Under federal law, when only a credit card number is used — not the card itself — the cardholder is not responsible for the unauthorized charges; when a physical card is lost or stolen, responsibility is capped at $50. For debit cards, the limit depends on how quickly the problem is reported.\n3. Follow up in writing, noting the date and time you reported the exposure, and keep copies of the letter and your call notes.\n4. Update automatic payments tied to the old card number once the replacement arrives.\n\nContinue to review statements on the account for several months. Reporting procedures and liability details are at consumer.ftc.gov/articles/lost-or-stolen-credit-atm-and-debit-cards.",
+  "source_url": "https://consumer.ftc.gov/articles/lost-or-stolen-credit-atm-and-debit-cards",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Corrected in adversarial review 2026-08-02: the FTC article distinguishes card-number-only misuse (no credit card liability) from a lost or stolen physical card ($50 cap). The prior body applied the $50 cap to the number-only scenario this module actually covers. Debit tiers (reporting-speed dependent) confirmed; source URL confirmed."
+}

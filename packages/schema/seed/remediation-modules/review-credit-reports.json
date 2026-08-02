@@ -1,0 +1,19 @@
+{
+  "slug": "review-credit-reports",
+  "title": "Review Your Credit Reports at AnnualCreditReport.com",
+  "applies_to": [
+    "ssn",
+    "dob",
+    "name",
+    "address",
+    "gov_id",
+    "financial_account"
+  ],
+  "jurisdiction": "US",
+  "priority": 8,
+  "body_md": "Your credit reports list accounts and applications opened in your name. Reviewing them is how new-account fraud is found.\n\n1. Request reports at AnnualCreditReport.com — the only source federally authorized for free credit reports — or by phone at 877-322-8228. Reports from each of the three nationwide bureaus are available free once a week.\n2. Review each bureau's report separately; their contents can differ.\n3. Look for accounts you did not open, hard inquiries from companies you never contacted, balances you do not recognize, and names, addresses, or employers that are not yours.\n4. Dispute inaccurate entries with the credit bureau and with the company that furnished the information; each report explains the bureau's dispute process.\n5. Recheck on a regular schedule — for example, one bureau's report each month in rotation — for at least the next year.\n\nRequesting your own report is free and does not affect your credit score. Federal guidance is at consumer.ftc.gov/articles/free-credit-reports.",
+  "source_url": "https://consumer.ftc.gov/articles/free-credit-reports",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: 877-322-8228 request line and permanent free weekly reports (FTC alert, Oct 2023) confirmed. No changes needed."
+}

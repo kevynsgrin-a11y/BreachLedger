@@ -1,0 +1,16 @@
+{
+  "slug": "credit-freeze",
+  "title": "Place a Security Freeze at All Three Credit Bureaus",
+  "applies_to": [
+    "ssn",
+    "dob",
+    "gov_id"
+  ],
+  "jurisdiction": "US",
+  "priority": 1,
+  "body_md": "A security freeze restricts access to your credit file, which stops most new credit accounts from being opened in your name. Placing, lifting, and removing a freeze is free under federal law and does not affect your credit score.\n\n1. Place a freeze with each of the three nationwide bureaus separately — one bureau does not notify the others:\n   - **Equifax**: equifax.com or 800-685-1111\n   - **Experian**: experian.com or 888-397-3742\n   - **TransUnion**: transunion.com or 888-909-8872\n2. Record the PIN or password each bureau issues; you will need it to lift the freeze later.\n3. When you apply for credit, a loan, or certain services, temporarily lift the freeze with each bureau the lender will check. Bureaus must lift a freeze within one hour of an online or phone request.\n\nA freeze does not affect existing accounts, and you can continue using your current credit cards. It also does not block your existing creditors from seeing your file, so pair it with regular review of your credit reports and statements. Full details are at consumer.ftc.gov/articles/credit-freezes-and-fraud-alerts.",
+  "source_url": "https://consumer.ftc.gov/articles/credit-freezes-and-fraud-alerts",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02 against the FTC article: all three bureau phone numbers (800-685-1111, 888-397-3742, 888-909-8872), free placement/lift under federal law, and one-hour lift for online/phone requests confirmed. No changes needed."
+}

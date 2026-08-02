@@ -1,0 +1,14 @@
+{
+  "slug": "irs-identity-protection-pin",
+  "title": "Get an IRS Identity Protection PIN",
+  "applies_to": [
+    "ssn"
+  ],
+  "jurisdiction": "US",
+  "priority": 7,
+  "body_md": "An Identity Protection PIN (IP PIN) is a six-digit number known only to you and the IRS. It prevents someone else from filing a federal tax return using your Social Security number or Individual Taxpayer Identification Number.\n\n1. Request an IP PIN at irs.gov/ippin using an IRS online account. Identity verification is required.\n2. If you cannot verify your identity online, alternatives include filing Form 15227 (available for incomes below IRS thresholds) or scheduling an in-person appointment at a Taxpayer Assistance Center; both options are described on the IRS page.\n3. Enter the IP PIN when filing your federal return, whether you file electronically or on paper.\n4. The IRS issues a new IP PIN each calendar year. Retrieve the new one through your online account before filing.\n\nShare the PIN only with a tax preparer you trust, and only at filing time. The IRS does not call, email, or text to request an IP PIN. Full instructions are at irs.gov/identity-theft-fraud-scams/get-an-identity-protection-pin.",
+  "source_url": "https://www.irs.gov/identity-theft-fraud-scams/get-an-identity-protection-pin",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: program name (Identity Protection PIN / IP PIN), six-digit format, online-account path, Form 15227 with AGI thresholds (currently $84,000 single / $168,000 MFJ — body correctly references thresholds generically since they change), Taxpayer Assistance Center option, and annual reissue all confirmed on irs.gov. No changes needed."
+}

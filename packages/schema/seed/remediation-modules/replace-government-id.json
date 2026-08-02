@@ -1,0 +1,14 @@
+{
+  "slug": "replace-government-id",
+  "title": "Replace a Compromised Driver's License or Passport",
+  "applies_to": [
+    "gov_id"
+  ],
+  "jurisdiction": "US",
+  "priority": 9,
+  "body_md": "A driver's license, state ID, or passport number exposed in a breach can be used to impersonate you in transactions that require identity documents.\n\n**Driver's license or state ID**\n\n1. Contact your state motor vehicle agency; find yours through usa.gov/state-motor-vehicle-services.\n2. Report that the license number was exposed and ask about replacement. Some states will issue a new license number or add a verification flag to your record.\n\n**U.S. passport**\n\n1. If the passport book or card itself was compromised, report it to the State Department using Form DS-64, submitted online or by phone at 1-877-487-2778. A reported passport is invalidated and cannot be used again, even if recovered.\n2. Apply for a replacement in person using Form DS-11.\n3. If only the passport number was exposed but the document remains in your possession, the passport generally remains valid; keep the breach notice with your records in case questions arise.\n\nFederal guidance on lost or stolen passports is at usa.gov/lost-stolen-passport.",
+  "source_url": "https://www.usa.gov/lost-stolen-passport",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: usa.gov/lost-stolen-passport and usa.gov/state-motor-vehicle-services both live; DS-64 (online/phone/mail), 1-877-487-2778, invalidation on report, and DS-11 in-person replacement all confirmed on usa.gov. No changes needed."
+}

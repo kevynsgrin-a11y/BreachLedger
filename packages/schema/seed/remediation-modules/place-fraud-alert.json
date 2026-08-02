@@ -1,0 +1,18 @@
+{
+  "slug": "place-fraud-alert",
+  "title": "Place a Free Fraud Alert on Your Credit File",
+  "applies_to": [
+    "ssn",
+    "dob",
+    "name",
+    "address",
+    "gov_id"
+  ],
+  "jurisdiction": "US",
+  "priority": 6,
+  "body_md": "A fraud alert is a notice on your credit file asking businesses to verify your identity before opening new credit in your name. It is free, and unlike a credit freeze it does not need to be lifted before you apply for credit.\n\n1. Contact any one of the three nationwide credit bureaus; that bureau must notify the other two:\n   - **Equifax**: 800-685-1111\n   - **Experian**: 888-397-3742\n   - **TransUnion**: 888-909-8872\n2. An initial fraud alert lasts one year and can be renewed when it expires.\n3. When you place an alert, you can request a free copy of your credit report from each bureau; review all three for accounts or inquiries you do not recognize.\n4. Keep the confirmation each bureau sends.\n\nA fraud alert can be used alongside a credit freeze: the freeze restricts who can access your file, while the alert instructs businesses that do access it to verify identity first. Details are at consumer.ftc.gov/articles/credit-freezes-and-fraud-alerts.",
+  "source_url": "https://consumer.ftc.gov/articles/credit-freezes-and-fraud-alerts",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: one-bureau-notifies-all mechanism, one-year renewable duration, and all three phone numbers confirmed against FTC sources. No changes needed."
+}

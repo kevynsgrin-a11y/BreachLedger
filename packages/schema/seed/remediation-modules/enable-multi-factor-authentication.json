@@ -1,0 +1,18 @@
+{
+  "slug": "enable-multi-factor-authentication",
+  "title": "Turn On Multi-Factor Authentication",
+  "applies_to": [
+    "credentials_plaintext",
+    "credentials_hashed",
+    "email",
+    "phone",
+    "biometric"
+  ],
+  "jurisdiction": "US",
+  "priority": 3,
+  "body_md": "Multi-factor authentication (also called two-factor authentication or two-step verification) requires a second credential in addition to your password, so a stolen password alone is not enough to sign in.\n\n1. Open the security settings of each important account — email, banking, health insurance, retirement, cloud storage — and look for \"two-factor authentication,\" \"two-step verification,\" or \"multi-factor authentication.\"\n2. Choose a second factor. An authenticator app or a physical security key provides stronger protection than codes sent by text message; prefer them where offered, particularly if your phone number was exposed.\n3. Save the backup or recovery codes the service provides and store them separately from your passwords.\n4. Enable it on your email account first, since email is commonly used to reset other passwords.\n\nIf biometric data was exposed, note that fingerprints and face data cannot be reissued; favor authenticator apps and security keys as second factors rather than relying on biometrics alone. Never share a one-time code with anyone who contacts you — legitimate companies do not call or text to ask for one. Federal guidance is at consumer.ftc.gov/articles/use-two-factor-authentication-protect-your-accounts.",
+  "source_url": "https://consumer.ftc.gov/articles/use-two-factor-authentication-protect-your-accounts",
+  "last_verified": "2026-08-02",
+  "_confidence": "high",
+  "_notes": "Re-verified 2026-08-02: article exists at this exact slug; app/key stronger than SMS matches FTC guidance. Biometric class attached because biometrics cannot be replaced; module directs reliance on app/key factors. No changes needed."
+}
