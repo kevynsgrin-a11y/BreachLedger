@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "formula": "score = min(100, data_class_subtotal + scale_mod + remediation_gap_mod + notification_lag_mod)",
+  "published_at": "/severity",
+  "data_class_subtotal": {
+    "description": "Sum of the severity weights of every exposed data class, capped at 70.",
+    "cap": 70,
+    "weights": {
+      "biometric": 30,
+      "ssn": 30,
+      "financial_account": 25,
+      "medical": 22,
+      "gov_id": 20,
+      "payment_card": 18,
+      "dob": 15,
+      "credentials_plaintext": 14,
+      "credentials_hashed": 8,
+      "address": 4,
+      "phone": 3,
+      "email": 3,
+      "name": 2
+    }
+  },
+  "scale_modifier": {
+    "description": "Log-scaled on records_affected. Bands are inclusive of their lower bound, exclusive of their upper bound. Unknown records_affected scores 0 and is flagged in the breakdown.",
+    "max": 15,
+    "bands": [
+      { "min": 0,        "max": 1000,       "points": 0,  "label": "under 1,000" },
+      { "min": 1000,     "max": 10000,      "points": 3,  "label": "1,000 to 10,000" },
+      { "min": 10000,    "max": 100000,     "points": 6,  "label": "10,000 to 100,000" },
+      { "min": 100000,   "max": 1000000,    "points": 9,  "label": "100,000 to 1,000,000" },
+      { "min": 1000000,  "max": 10000000,   "points": 12, "label": "1,000,000 to 10,000,000" },
+      { "min": 10000000, "max": null,       "points": 15, "label": "over 10,000,000" }
+    ],
+    "unknown_records_points": 0
+  },
+  "remediation_gap_modifier": {
+    "description": "Scores the gap between what was exposed and what the entity offered. The spec defines: none offered = 10, under 12 months = 5, 24 months or more = 0. The 12-23 month band, unspecified in the source spec, is set to 2 in rubric v1.0.",
+    "max": 10,
+    "bands": [
+      { "condition": "no_monitoring_offered", "points": 10 },
+      { "condition": "months < 12",           "points": 5 },
+      { "condition": "12 <= months < 24",     "points": 2 },
+      { "condition": "months >= 24",          "points": 0 }
+    ]
+  },
+  "notification_lag_modifier": {
+    "description": "Days between discovery_date and notification_date. Unknown dates score 0 and are flagged in the breakdown.",
+    "max": 5,
+    "bands": [
+      { "min_days": 0,  "max_days": 30,   "points": 0 },
+      { "min_days": 31, "max_days": 60,   "points": 2 },
+      { "min_days": 61, "max_days": 90,   "points": 3 },
+      { "min_days": 91, "max_days": null, "points": 5 }
+    ],
+    "unknown_dates_points": 0
+  },
+  "rendering_rule": "Always display the score with its component breakdown and the rubric version. A bare number with no math shown reads as invented."
+}

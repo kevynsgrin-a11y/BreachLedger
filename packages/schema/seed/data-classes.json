@@ -1,0 +1,18 @@
+{
+  "_comment": "Authored from the spec section 5 weight table, exactly as specified. 'Name only' carries no permanence in the rubric table; it is stored as 'permanent' to satisfy the NOT NULL enum (see README schema notes). remediation_ids are not stored here: they are computed at seed-load time (packages/schema/seed/load.js) as the inverse of remediation_modules.applies_to, so the module library remains the single source of truth.",
+  "classes": [
+    { "code": "biometric",             "label": "Biometric identifiers",                  "permanence": "permanent",      "severity_weight": 30 },
+    { "code": "ssn",                   "label": "Social Security number",                 "permanence": "permanent",      "severity_weight": 30 },
+    { "code": "financial_account",     "label": "Financial account and routing number",   "permanence": "semi_permanent", "severity_weight": 25 },
+    { "code": "medical",               "label": "Medical records or diagnoses",           "permanence": "permanent",      "severity_weight": 22 },
+    { "code": "gov_id",                "label": "Government ID (passport, driver's license)", "permanence": "semi_permanent", "severity_weight": 20 },
+    { "code": "payment_card",          "label": "Payment card, full PAN and CVV",         "permanence": "rotatable",      "severity_weight": 18 },
+    { "code": "dob",                   "label": "Date of birth",                          "permanence": "permanent",      "severity_weight": 15 },
+    { "code": "credentials_plaintext", "label": "Credentials, plaintext or reversible",   "permanence": "rotatable",      "severity_weight": 14 },
+    { "code": "credentials_hashed",    "label": "Credentials, properly hashed",           "permanence": "rotatable",      "severity_weight": 8 },
+    { "code": "address",               "label": "Physical address",                       "permanence": "semi_permanent", "severity_weight": 4 },
+    { "code": "phone",                 "label": "Phone number",                           "permanence": "semi_permanent", "severity_weight": 3 },
+    { "code": "email",                 "label": "Email address",                          "permanence": "rotatable",      "severity_weight": 3 },
+    { "code": "name",                  "label": "Name only",                              "permanence": "permanent",      "severity_weight": 2 }
+  ]
+}

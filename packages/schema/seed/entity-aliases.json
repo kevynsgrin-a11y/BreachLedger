@@ -1,0 +1,4 @@
+{
+  "_comment": "Manual alias map for entity resolution (spec section 4). Keys are the canonical normalized entity name; values are arrays of normalized aliases that should resolve to it — e.g. a hospital network notifying under multiple facility names. Populated during Phase 2 as cross-source duplicates surface.",
+  "aliases": {}
+}

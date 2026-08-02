@@ -1,0 +1,17 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+
+# wrangler local state (local D1 sqlite lives here)
+.wrangler/
+.dev.vars
+
+# build-time D1 export (generated, never committed)
+site/data/*.json
+!site/data/.gitkeep
+
+# logs
+*.log
+docs/ingest-rejects.log

@@ -1,0 +1,88 @@
+/* BreachLedger — institutional records-portal register (spec section 10).
+   Muted gray scale, one restrained link accent, one amber reserved for actual
+   legal deadlines. No alarm red. Typography-led: serif headings, system body.
+   Tables over cards; density signals rigor. */
+
+:root {
+  --ink: #1c1e21;
+  --ink-soft: #4a4e54;
+  --ink-faint: #6e737a;
+  --paper: #fbfbfa;
+  --panel: #f2f2ef;
+  --rule: #d6d6d1;
+  --accent: #2b5b84;        /* links only */
+  --deadline-amber: #92610c; /* actual legal deadlines only */
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --serif: "Charter", "Georgia", "Times New Roman", serif;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem; }
+
+h1, h2, h3, .masthead { font-family: var(--serif); font-weight: 600; line-height: 1.2; }
+h1 { font-size: 1.7rem; margin: 1.6rem 0 0.4rem; }
+h2 { font-size: 1.25rem; margin: 1.8rem 0 0.4rem; }
+h3 { font-size: 1.05rem; margin: 1.4rem 0 0.3rem; }
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+.site-header { border-bottom: 2px solid var(--ink); background: var(--paper); padding: 1.1rem 0 0.8rem; }
+.masthead { margin: 0; font-size: 1.5rem; letter-spacing: 0.01em; }
+.masthead a { color: var(--ink); text-decoration: none; }
+.site-tagline { margin: 0.15rem 0 0.6rem; color: var(--ink-soft); font-size: 0.92rem; }
+.site-nav { display: flex; gap: 1.4rem; flex-wrap: wrap; border-top: 1px solid var(--rule); padding-top: 0.55rem; }
+.site-nav a { font-size: 0.9rem; color: var(--ink-soft); text-decoration: none; text-transform: uppercase; letter-spacing: 0.06em; }
+.site-nav a:hover { color: var(--accent); }
+
+main { padding-bottom: 3rem; }
+
+table { border-collapse: collapse; width: 100%; margin: 0.8rem 0 1.2rem; font-size: 0.9rem; }
+th, td { border: 1px solid var(--rule); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+th { background: var(--panel); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
+tbody tr:nth-child(even) { background: #f7f7f5; }
+
+code { font-family: var(--mono); font-size: 0.85em; background: var(--panel); padding: 0.08em 0.3em; border-radius: 2px; }
+
+.empty-state {
+  border: 1px solid var(--rule);
+  background: var(--panel);
+  padding: 1rem 1.2rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+  margin: 1rem 0;
+}
+
+.deadline { color: var(--deadline-amber); font-weight: 600; }
+
+/* Severity: labeled bar with visible component breakdown — never a bare badge. */
+.severity-bar { background: var(--panel); border: 1px solid var(--rule); height: 14px; width: 100%; max-width: 28rem; }
+.severity-bar-fill { background: var(--ink-soft); height: 100%; }
+.severity-breakdown { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-soft); }
+
+/* Source citations are first-class page furniture, not a footnote. */
+.citations {
+  border: 1px solid var(--ink-soft);
+  border-left: 4px solid var(--ink-soft);
+  background: var(--panel);
+  padding: 0.8rem 1.1rem;
+  margin: 1.4rem 0;
+}
+.citations h2, .citations h3 { margin-top: 0; }
+.citations ol { margin: 0.4rem 0 0; padding-left: 1.2rem; }
+.citations li { margin-bottom: 0.3rem; font-size: 0.9rem; }
+.retrieved { color: var(--ink-faint); font-size: 0.85em; }
+
+.site-footer { border-top: 1px solid var(--rule); margin-top: 2rem; padding: 1.2rem 0 2rem; color: var(--ink-faint); font-size: 0.85rem; }
+
+hr { border: 0; border-top: 1px solid var(--rule); margin: 1.6rem 0; }

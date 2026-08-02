@@ -1,0 +1,12 @@
+name = "breachledger-api"
+main = "src/index.js"
+compatibility_date = "2026-07-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "breachledger"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[kv_namespaces]]
+binding = "HOT"
+id = "00000000000000000000000000000000"

@@ -1,0 +1,22 @@
+# BreachLedger — Cloudflare Pages project + shared bindings.
+# The three workers (ingest-cron, alerts, api) each carry their own wrangler.toml
+# under workers/, sharing the D1 database and KV namespaces declared here.
+
+name = "breachledger"
+compatibility_date = "2026-07-01"
+pages_build_output_dir = "dist"
+
+# Canonical store. database_id is a placeholder until `wrangler d1 create
+# breachledger` is run against the production account; local development
+# (`--local`) does not need a real id.
+[[d1_databases]]
+binding = "DB"
+database_name = "breachledger"
+database_id = "00000000-0000-0000-0000-000000000000"
+migrations_dir = "packages/schema/migrations"
+
+# Hot-path reads that must not trigger a rebuild: open-settlement countdowns,
+# "breaches added this week". Placeholder ids until provisioned.
+[[kv_namespaces]]
+binding = "HOT"
+id = "00000000000000000000000000000000"
