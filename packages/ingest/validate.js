@@ -6,6 +6,7 @@ const fs = require('fs');
 const path = require('path');
 
 const rubric = require('../severity/rubric.json');
+const { parseIsoDate } = require('../severity/score');
 const KNOWN_DATA_CLASSES = new Set(Object.keys(rubric.data_class_subtotal.weights));
 const REJECT_LOG = path.join(__dirname, '..', '..', 'docs', 'ingest-rejects.log');
 
@@ -20,6 +21,19 @@ function validate(record) {
   }
   if (!record.notification_date) {
     reasons.push('missing notification_date');
+  }
+  // Dates must be well-formed, calendar-valid ISO dates — Date.parse would
+  // silently roll 2025-02-30 into March, scoring a lag no source reported.
+  for (const field of ['notification_date', 'discovery_date', 'breach_start_date', 'breach_end_date']) {
+    if (record[field] != null && Number.isNaN(parseIsoDate(record[field]))) {
+      reasons.push(`invalid ${field} '${record[field]}'`);
+    }
+  }
+  if (record.records_affected != null) {
+    const n = record.records_affected;
+    if (typeof n !== 'number' || !Number.isInteger(n) || n < 0) {
+      reasons.push(`records_affected must be a non-negative integer or null, got '${n}'`);
+    }
   }
   if (!Array.isArray(record.sources) || record.sources.length === 0) {
     reasons.push('zero source rows');

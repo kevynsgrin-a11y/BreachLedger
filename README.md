@@ -73,3 +73,11 @@ Documented decisions where the implementation had to fill a gap or deviate from 
 5. **"≥1 source per breach" is enforced procedurally** — SQLite cannot express the constraint declaratively;
    it is enforced in `packages/ingest/validate.js` (reject at ingest) and again in `site/build.js`
    (zero-source records never render).
+6. **Scale-band boundary convention** — the spec's band table is boundary-ambiguous (10k appears in both the
+   "1k–10k" and "10k–100k" bands). Rubric v1.0 publishes all bands as lower-inclusive/upper-exclusive, which
+   places exactly 10,000,000 records in the 15-point band rather than the 12-point band a literal ">10M"
+   reading would give.
+7. **Unknown-data defaults** — the spec is silent on missing inputs. Rubric v1.0 publishes: undisclosed
+   `records_affected` scores 0 (flagged "not disclosed" in the breakdown; a disclosed-but-invalid value is
+   flagged "invalid value"); missing or calendar-invalid discovery/notification dates score 0 (flagged);
+   monitoring offered with unknown duration scores 5, so missing data is never rewarded.

@@ -6,6 +6,23 @@ const rubric = require('./rubric.json');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Strict ISO date parse: accepts YYYY-MM-DD (optionally with a time suffix)
+ * and rejects calendar-invalid dates (2025-02-30 must not silently roll over
+ * to March 2 — a lag computed from a date that appeared in no source would be
+ * presented as known). Returns epoch ms or NaN.
+ */
+function parseIsoDate(value) {
+  if (typeof value !== 'string') return NaN;
+  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ].*)?$/);
+  if (!m) return NaN;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const t = Date.UTC(y, mo - 1, d);
+  const rt = new Date(t);
+  if (rt.getUTCFullYear() !== y || rt.getUTCMonth() !== mo - 1 || rt.getUTCDate() !== d) return NaN;
+  return t;
+}
+
 function dataClassSubtotal(dataClasses) {
   const weights = rubric.data_class_subtotal.weights;
   const parts = [];
@@ -20,15 +37,20 @@ function dataClassSubtotal(dataClasses) {
 }
 
 function scaleModifier(recordsAffected) {
-  if (recordsAffected == null || !Number.isFinite(recordsAffected)) {
-    return { points: rubric.scale_modifier.unknown_records_points, band: 'unknown', unknown: true };
+  if (recordsAffected == null) {
+    return { points: rubric.scale_modifier.unknown_records_points, band: 'not disclosed', unknown: true };
+  }
+  // Disclosed-but-invalid (negative, non-numeric) is distinct from undisclosed:
+  // the breakdown must not claim "undisclosed" for data that is present but bad.
+  if (typeof recordsAffected !== 'number' || !Number.isFinite(recordsAffected) || recordsAffected < 0) {
+    return { points: 0, band: 'invalid value', unknown: true };
   }
   for (const band of rubric.scale_modifier.bands) {
     if (recordsAffected >= band.min && (band.max === null || recordsAffected < band.max)) {
       return { points: band.points, band: band.label, unknown: false };
     }
   }
-  return { points: 0, band: 'unknown', unknown: true };
+  return { points: 0, band: 'invalid value', unknown: true };
 }
 
 function remediationGapModifier(remediationOffered) {
@@ -37,9 +59,9 @@ function remediationGapModifier(remediationOffered) {
     return { points: 10, band: 'no monitoring offered' };
   }
   const months = remediationOffered.months;
-  if (months == null || !Number.isFinite(months)) {
-    // Monitoring offered but duration unknown: treat as the under-12-months band
-    // rather than rewarding missing data with 0.
+  if (months == null || typeof months !== 'number' || !Number.isFinite(months) || months < 0) {
+    // Monitoring offered but duration unknown or invalid: treat as the
+    // under-12-months band rather than rewarding missing data with 0.
     return { points: 5, band: 'monitoring offered, duration unknown', unknown: true };
   }
   if (months < 12) return { points: 5, band: 'under 12 months' };
@@ -48,20 +70,20 @@ function remediationGapModifier(remediationOffered) {
 }
 
 function notificationLagModifier(discoveryDate, notificationDate) {
-  if (!discoveryDate || !notificationDate) {
-    return { points: rubric.notification_lag_modifier.unknown_dates_points, days: null, unknown: true };
-  }
-  const d = Date.parse(discoveryDate);
-  const n = Date.parse(notificationDate);
-  if (Number.isNaN(d) || Number.isNaN(n) || n < d) {
-    return { points: rubric.notification_lag_modifier.unknown_dates_points, days: null, unknown: true };
-  }
+  const unknown = { points: rubric.notification_lag_modifier.unknown_dates_points, days: null, unknown: true };
+  if (!discoveryDate || !notificationDate) return unknown;
+  const d = parseIsoDate(discoveryDate);
+  const n = parseIsoDate(notificationDate);
+  if (Number.isNaN(d) || Number.isNaN(n) || n < d) return unknown;
   const days = Math.round((n - d) / DAY_MS);
-  let points = 0;
-  if (days > 90) points = 5;
-  else if (days > 60) points = 3;
-  else if (days > 30) points = 2;
-  return { points, days, unknown: false };
+  // Band thresholds come from rubric.json so the published rubric and the
+  // computed scores cannot silently desynchronize.
+  for (const band of rubric.notification_lag_modifier.bands) {
+    if (days >= band.min_days && (band.max_days === null || days <= band.max_days)) {
+      return { points: band.points, days, unknown: false };
+    }
+  }
+  return unknown;
 }
 
 /**
@@ -89,4 +111,4 @@ function score(breach) {
   };
 }
 
-module.exports = { score, dataClassSubtotal, scaleModifier, remediationGapModifier, notificationLagModifier };
+module.exports = { score, dataClassSubtotal, scaleModifier, remediationGapModifier, notificationLagModifier, parseIsoDate };

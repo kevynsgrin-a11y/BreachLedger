@@ -60,6 +60,28 @@ test('unknown data scores 0 for scale and lag, and is flagged', () => {
   assert.equal(r.score, 30);
 });
 
+test('calendar-invalid dates are flagged unknown, not silently rolled over', () => {
+  const r = score({ data_classes: [], remediation_offered: { type: 'x', months: 24 }, discovery_date: '2025-02-30', notification_date: '2025-03-15' });
+  assert.equal(r.breakdown.notification_lag_modifier.unknown, true);
+  assert.equal(r.breakdown.notification_lag_modifier.days, null);
+});
+
+test('disclosed-but-invalid records are flagged invalid, not "not disclosed"', () => {
+  const bad = score({ data_classes: [], records_affected: -5, remediation_offered: { type: 'x', months: 24 } });
+  assert.equal(bad.breakdown.scale_modifier.band, 'invalid value');
+  assert.equal(bad.breakdown.scale_modifier.points, 0);
+  const str = score({ data_classes: [], records_affected: '5000', remediation_offered: { type: 'x', months: 24 } });
+  assert.equal(str.breakdown.scale_modifier.band, 'invalid value');
+  const missing = score({ data_classes: [], records_affected: null, remediation_offered: { type: 'x', months: 24 } });
+  assert.equal(missing.breakdown.scale_modifier.band, 'not disclosed');
+});
+
+test('negative monitoring months treated as unknown duration (5 points)', () => {
+  const r = score({ data_classes: [], remediation_offered: { type: 'credit_monitoring', months: -3 } });
+  assert.equal(r.breakdown.remediation_gap_modifier.points, 5);
+  assert.equal(r.breakdown.remediation_gap_modifier.unknown, true);
+});
+
 test('remediation gap: unknown duration scores 5, 12-23 months scores 2', () => {
   const gap = (rem) => score({ data_classes: [], remediation_offered: rem }).breakdown.remediation_gap_modifier.points;
   assert.equal(gap(null), 10);

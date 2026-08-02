@@ -31,14 +31,22 @@ function readDoc(name) {
 function writePage(routePath, html) {
   // '/' -> dist/index.html, '/severity' -> dist/severity/index.html
   const rel = routePath === '/' ? 'index.html' : path.join(routePath.replace(/^\//, ''), 'index.html');
-  const target = path.join(OUT, rel);
+  const target = path.resolve(OUT, rel);
+  // Containment: a slug-derived route must never escape dist/ (e.g. '../').
+  if (!target.startsWith(path.resolve(OUT) + path.sep)) {
+    throw new Error(`writePage: route '${routePath}' resolves outside the output directory`);
+  }
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, html);
   return target;
 }
 
 // Build-blocking guards (spec sections 8-10).
-const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/u;
+// Emoji ranges: core emoji blocks, misc-symbols/dingbats, misc-technical
+// (alarm clocks, hourglasses — countdown iconography), 2B00 block (stars,
+// circles), doubled punctuation, and variation selector 16. Deliberately
+// excludes text glyphs like section signs, arrows, daggers, (c)/(tm).
+const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B00}-\u{2BFF}\u{2934}\u{2935}\u{203C}\u{2049}\u{3030}\u{303D}\u{3297}\u{3299}\u{FE0F}]/u;
 function guardPage(routePath, html) {
   const problems = [];
   if (!html.startsWith('<!doctype html>')) problems.push('missing doctype');
@@ -65,10 +73,14 @@ function main() {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
 
-  // Assets
+  // Assets (text assets pass the emoji guard too — a CSS `content:` emoji
+  // would otherwise ship unchecked)
   const assetOut = path.join(OUT, 'assets');
   fs.mkdirSync(assetOut, { recursive: true });
   for (const f of fs.readdirSync(ASSETS)) {
+    if (/\.(css|js|svg|txt)$/.test(f) && EMOJI_RE.test(fs.readFileSync(path.join(ASSETS, f), 'utf8'))) {
+      throw new Error(`build guard failed for asset ${f}: emoji found (spec section 10)`);
+    }
     fs.copyFileSync(path.join(ASSETS, f), path.join(assetOut, f));
   }
 
@@ -76,6 +88,15 @@ function main() {
   const breaches = readData('breaches');
   const sources = readData('sources');
   const litigation = readData('litigation');
+
+  // UPL guard (spec sections 3 and 9): official_claim_url must be the
+  // settlement administrator's domain, never ours. Build-blocking.
+  const ourHost = new URL(config.site.origin).host;
+  for (const l of litigation) {
+    if (l.official_claim_url && new URL(l.official_claim_url).host === ourHost) {
+      throw new Error(`build guard failed: litigation ${l.id} official_claim_url is on our own domain`);
+    }
+  }
   const sourcesByBreach = new Map();
   for (const s of sources) {
     if (!sourcesByBreach.has(s.breach_id)) sourcesByBreach.set(s.breach_id, []);

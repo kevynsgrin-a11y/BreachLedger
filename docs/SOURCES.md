@@ -36,10 +36,21 @@ is updated with the new URL and a fresh verification date.
 - **State notification-law reference** (`state_rights` table): seeded 2026-08-02 from statutory research with an
   independent cross-check pass; each row carries a `last_verified` date. Rows are re-verified against the official
   state legislature source before the corresponding `/rights/[state]` page ships in Phase 3, and any figure that
-  could not be confirmed is stored as null rather than guessed. Statute citations and URLs point to official
-  state legislature or code publisher sites.
-- **Remediation modules**: every module cites one authoritative federal source (FTC, CFPB, IRS,
-  AnnualCreditReport.com) as the authority for its instructions, with a `last_verified` date.
+  could not be confirmed is stored as null rather than guessed. Statute URLs point to official state legislature
+  sites or the state's contracted official code publisher. Where a state offers no stable per-section link
+  (for example Mississippi, whose official code is a Lexis-hosted service), the URL is the official legislature
+  gateway and the row's research notes say how to navigate to the section.
+- **Remediation modules**: every module cites one authoritative federal source — consumer.ftc.gov,
+  IdentityTheft.gov, IRS.gov, consumerfinance.gov (CFPB), or USA.gov — as the authority for its instructions,
+  with a `last_verified` date.
+
+## Contact and error reports
+
+Corrections and source disputes are tracked in the project repository at
+[github.com/kevynsgrin-a11y/BreachLedger](https://github.com/kevynsgrin-a11y/BreachLedger) — open an issue with a
+citation to the government or court document that supports the correction. A dedicated corrections email
+will be published here when the production domain launches; this page is the canonical place to find the
+current channel.
 
 ## What this site deliberately does not do
 

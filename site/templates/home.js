@@ -18,8 +18,8 @@ function render(ctx) {
 <td><a href="/breach/${escapeHtml(b.slug)}">${escapeHtml(b.entity_name)}</a></td>
 <td>${escapeHtml(b.sector || '')}</td>
 <td>${escapeHtml(b.notification_date || '')}</td>
-<td>${b.records_affected != null ? Number(b.records_affected).toLocaleString('en-US') + (b.records_affected_is_est ? ' (est.)' : '') : 'not disclosed'}</td>
-<td>${b.severity_score != null ? `${b.severity_score} / 100` : ''}</td>
+<td>${Number.isFinite(Number(b.records_affected)) && b.records_affected != null ? Number(b.records_affected).toLocaleString('en-US') + (b.records_affected_is_est ? ' (est.)' : '') : 'not disclosed'}</td>
+<td>${Number.isFinite(Number(b.severity_score)) && b.severity_score != null ? `${Number(b.severity_score)} / 100` : ''}</td>
 </tr>`
         )
         .join('\n')}</tbody></table>`

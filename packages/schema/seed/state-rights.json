@@ -136,7 +136,7 @@
       "mandated_monitoring_months": null,
       "ag_report_threshold": 500,
       "statute_citation": "Fla. Stat. § 501.171",
-      "statute_url": "http://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0501/Sections/0501.171.html",
+      "statute_url": "https://www.leg.state.fl.us/statutes/index.cfm?App_mode=Display_Statute&URL=0500-0599/0501/Sections/0501.171.html",
       "last_verified": "2026-08-02",
       "_confidence": "high",
       "_notes": "Verified. Florida Information Protection Act (FIPA). Individual notice due as expeditiously as practicable but no later than 30 days after determination of the breach or reason to believe one occurred; 15-day extension available for good cause shown in writing to the Department of Legal Affairs. Notice to the Department of Legal Affairs (the AG's department) required for breaches affecting 500 OR MORE individuals in Florida ('500 or more' — inclusive, so 500 is the correct at/above threshold), also within 30 days. URL is the Legislature's official Online Sunshine site; flsenate.gov/Laws/Statutes also official."
@@ -250,7 +250,7 @@
       "statute_citation": "Ky. Rev. Stat. § 365.732",
       "statute_url": "https://apps.legislature.ky.gov/law/statutes/statute.aspx?id=43326",
       "last_verified": "2026-08-02",
-      "_confidence": "high",
+      "_confidence": "medium",
       "_notes": "Private-sector statute: notice in 'most expedient time possible and without unreasonable delay' — no fixed day count, hence null. No AG/agency notice requirement under KRS 365.732; CRA notice if >1,000 notified. A separate regime for public agencies and their contractors (KRS 61.931–61.934) DOES require notice to state officials incl. the AG and uses a 35-day framework — do not conflate. Triggers: name + SSN, driver's license, or account number w/ access code. Verification caveat: the statute-page URL format is correct for apps.legislature.ky.gov but the id=43326 parameter could not be fetched for confirmation — spot-check that it resolves to KRS 365.732."
     },
     {
@@ -261,7 +261,7 @@
       "free_credit_freeze": 1,
       "mandated_monitoring_months": null,
       "ag_report_threshold": 1,
-      "statute_citation": "La. Rev. Stat. § 51:3074",
+      "statute_citation": "La. Rev. Stat. § 51:3074; La. Admin. Code tit. 16, pt. III, § 701",
       "statute_url": "https://legis.la.gov/Legis/Law.aspx?d=322030",
       "last_verified": "2026-08-02",
       "_confidence": "high",
@@ -360,10 +360,10 @@
       "mandated_monitoring_months": null,
       "ag_report_threshold": null,
       "statute_citation": "Miss. Code Ann. § 75-24-29",
-      "statute_url": "https://law.justia.com/codes/mississippi/title-75/chapter-24/general-provisions/section-75-24-29/",
+      "statute_url": "https://www.legislature.ms.gov/",
       "last_verified": "2026-08-02",
       "_confidence": "medium",
-      "_notes": "Notice 'without unreasonable delay' after completing investigation — no fixed day count. NO AG notice requirement as of Aug 2026 — verified: SB2528 (2022), HB1625 (2024), and SB2046 (2025, died in committee 2/4/2025) all failed; the 2026 SB2046 is an UNRELATED name/likeness/voice bill (died 3/3/2026), and no 2026 refile of the AG-notice amendment was found. The only enacted 2026 MS cyber law, HB 1220 (eff. 7/1/2026), is an insurance-code cybersecurity safe harbor amending § 83-5-803 — it does not touch § 75-24-29. CAUTION: some AI-generated secondary sites present the failed '>100 affected → AG notice' provision as current law; disregard them. Violations are unfair trade practices enforced by the AG; no private right of action. URL is a Justia mirror because Mississippi's official code is published via a LexisNexis public-access portal without stable per-section deep links — flagged per policy. Confidence medium due to reliance on mirror text and conflicting secondary sources."
+      "_notes": "Notice 'without unreasonable delay' after completing investigation — no fixed day count. NO AG notice requirement as of Aug 2026 — verified: SB2528 (2022), HB1625 (2024), and SB2046 (2025, died in committee 2/4/2025) all failed; the 2026 SB2046 is an UNRELATED name/likeness/voice bill (died 3/3/2026), and no 2026 refile of the AG-notice amendment was found. The only enacted 2026 MS cyber law, HB 1220 (eff. 7/1/2026), is an insurance-code cybersecurity safe harbor amending § 83-5-803 — it does not touch § 75-24-29. CAUTION: some AI-generated secondary sites present the failed '>100 affected → AG notice' provision as current law; disregard them. Violations are unfair trade practices enforced by the AG; no private right of action. Confidence medium due to reliance on mirror text and conflicting secondary sources. URL is the official Mississippi Legislature gateway: the official Mississippi Code is Lexis-hosted public access reachable from legislature.ms.gov and sos.ms.gov with no stable per-section deep link (re-confirmed by live search 2026-08-02); navigate to Miss. Code Ann. § 75-24-29. Third-party mirrors (Justia/FindLaw) exist but are not cited."
     },
     {
       "state_code": "MT",
@@ -628,7 +628,7 @@
       "statute_citation": "Utah Code Ann. § 13-44-202",
       "statute_url": "https://le.utah.gov/xcode/Title13/Chapter44/13-44-S202.html",
       "last_verified": "2026-08-02",
-      "_confidence": "high",
+      "_confidence": "medium",
       "_notes": "Verified: Protection of Personal Information Act; consumer notice in most expedient time possible without unreasonable delay — no fixed day count (null is correct). Misuse/likely-misuse investigation trigger. SB 127 (2023, eff. May 2, 2023) requires notice to both the AG and the Utah Cyber Center when misuse of personal information of 500 or more Utah residents has occurred or is reasonably likely; consumer reporting agencies at 1,000 or more. SSN in § 13-44-102 definitions. URL follows le.utah.gov's standard xcode pattern but the site blocks automated fetches — spot-check the link manually."
     },
     {
