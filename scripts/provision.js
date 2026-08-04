@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// One-shot Cloudflare provisioning for BreachLedger.
+// One-shot Cloudflare provisioning for BreachBook (breachbook.org).
+// Infrastructure identifiers stay `breachledger` from the original build —
+// renaming them would require re-provisioning and break the live deployment.
 //
 // Prerequisites: CLOUDFLARE_API_TOKEN (and CLOUDFLARE_ACCOUNT_ID for
 // token-based auth) in the environment, or an interactive `wrangler login`.
@@ -108,10 +110,9 @@ migrateAndSeed();
 pagesProject();
 console.log(`
 Provisioning complete. Next:
-  1. SITE_ORIGIN=https://<your-domain> npm run deploy
-  2. Attach the custom domain to the Pages project in the Cloudflare dashboard
-     (Pages > breachledger > Custom domains), then redeploy with the final
-     SITE_ORIGIN so canonical URLs match.
+  1. npm run deploy   (builds with origin https://breachbook.org by default)
+  2. Confirm the custom domain breachbook.org is attached to the Pages project
+     in the Cloudflare dashboard (Pages > breachledger > Custom domains).
   3. Commit the patched wrangler.toml ids.
 Workers (ingest-cron, api, alerts) deploy in Phase 1+ — do not deploy a cron
 that has nothing to ingest yet.`);

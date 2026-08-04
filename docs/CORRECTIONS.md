@@ -2,7 +2,7 @@
 
 ## Policy
 
-BreachLedger corrects errors openly. When a published fact is found to be wrong — whether reported by a
+BreachBook corrects errors openly. When a published fact is found to be wrong — whether reported by a
 reader, surfaced by a source update, or caught internally — the record is corrected, the correction is
 logged here with the date and exactly what changed, and the affected record is marked `corrected`. Records
 are never silently edited and never deleted; a record shown to be unfounded is marked `retracted` with the

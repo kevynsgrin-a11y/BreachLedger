@@ -1,4 +1,6 @@
-# BreachLedger — Cloudflare Pages project + shared bindings.
+# BreachBook (breachbook.org) — Cloudflare Pages project + shared bindings.
+# Project/database/worker names stay `breachledger` from the original build:
+# renaming them would require re-provisioning and break the live deployment.
 # The three workers (ingest-cron, alerts, api) each carry their own wrangler.toml
 # under workers/, sharing the D1 database and KV namespaces declared here.
 

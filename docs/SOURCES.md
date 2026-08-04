@@ -1,6 +1,6 @@
 # Sources and methodology
 
-Every fact published on BreachLedger traces to a citable government or court source. This page documents
+Every fact published on BreachBook traces to a citable government or court source. This page documents
 each source, how it is retrieved, and when its endpoint was last verified. A breach record with zero
 sources is never rendered.
 
@@ -48,9 +48,9 @@ is updated with the new URL and a fresh verification date.
 
 Corrections and source disputes are tracked in the project repository at
 [github.com/kevynsgrin-a11y/BreachLedger](https://github.com/kevynsgrin-a11y/BreachLedger) — open an issue with a
-citation to the government or court document that supports the correction. A dedicated corrections email
-will be published here when the production domain launches; this page is the canonical place to find the
-current channel.
+citation to the government or court document that supports the correction. (The repository keeps its original
+name; the site is BreachBook.) This page is the canonical place to find the current correction channel, and a
+dedicated corrections address will be published here when one is in service.
 
 ## What this site deliberately does not do
 

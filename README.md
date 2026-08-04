@@ -1,8 +1,15 @@
-# BreachLedger
+# BreachBook
+
+Live at **[breachbook.org](https://breachbook.org)**.
 
 A structured public record of disclosed U.S. data breaches, paired with a remediation engine keyed to the
 data classes exposed, and tracking of the litigation and settlements that follow. **Every published fact
 traces to a citable government or court source.**
+
+> **Naming:** the public brand is **BreachBook** (breachbook.org). Infrastructure identifiers — this Git
+> repository, the Cloudflare Pages project, the D1 database, and the Worker names — remain `breachledger`
+> from the original build. This is deliberate: renaming them would require re-provisioning and would break
+> the live deployment. Only user-facing text carries the BreachBook name.
 
 Stack: Utility Engine monorepo → Cloudflare Pages (static site) + Workers (ingest-cron, alerts, api) +
 D1 (canonical store) + KV (hot-path reads).
@@ -49,11 +56,16 @@ export CLOUDFLARE_ACCOUNT_ID=...  # required for token auth
 npm run provision                 # creates D1 + KV, patches real ids into the
                                   # wrangler.toml files, migrates + seeds the
                                   # remote database, creates the Pages project
-SITE_ORIGIN=https://<domain> npm run deploy   # test + build + publish to Pages
+npm run deploy                    # test + build + publish to Pages
 ```
 
-Then attach the custom domain in the Cloudflare dashboard (Pages > breachledger > Custom domains) and
-redeploy with the final `SITE_ORIGIN` so canonical URLs match. Commit the patched wrangler.toml ids.
+`npm run deploy` builds with the production origin `https://breachbook.org` by default, so canonical and
+Open Graph URLs are correct with no extra flags. For a preview deployment served from another host, pass the
+host explicitly so canonical URLs don't point at production:
+`SITE_ORIGIN=https://<preview-host> npm run deploy`.
+
+The custom domain is attached in the Cloudflare dashboard (Pages > breachledger > Custom domains). Commit
+the patched wrangler.toml ids after the first provision.
 
 Continuous deploys: `.github/workflows/deploy.yml` publishes on every push once the
 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets and the `SITE_ORIGIN` repository variable are set.

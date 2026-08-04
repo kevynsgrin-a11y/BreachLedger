@@ -6,14 +6,27 @@ const { escapeHtml } = require('./markdown');
 
 function page({ site, title, description, content, route }) {
   const fullTitle = route === '/' ? `${site.name} — ${site.tagline}` : `${title} — ${site.name}`;
-  const canonical = route === '/404' ? '' : `\n<link rel="canonical" href="${site.origin}${route === '/' ? '/' : route + '/'}">`;
+  const url = `${site.origin}${route === '/' ? '/' : route + '/'}`;
+  const indexable = route !== '/404';
+  const canonical = indexable ? `\n<link rel="canonical" href="${url}">` : '\n<meta name="robots" content="noindex">';
+  // Link-preview metadata. No og:image is declared: an image tag pointing at a
+  // file that does not exist renders worse than none at all.
+  const social = indexable
+    ? `
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="${escapeHtml(site.name)}">
+<meta property="og:title" content="${escapeHtml(fullTitle)}">
+<meta property="og:description" content="${escapeHtml(description)}">
+<meta property="og:url" content="${url}">
+<meta name="twitter:card" content="summary">`
+    : '';
   return `<!doctype html>
 <html lang="${site.language}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(fullTitle)}</title>
-<meta name="description" content="${escapeHtml(description)}">${canonical}
+<meta name="description" content="${escapeHtml(description)}">${canonical}${social}
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/styles.css">
 </head>

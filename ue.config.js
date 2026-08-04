@@ -1,4 +1,4 @@
-// Utility Engine site configuration for BreachLedger.
+// Utility Engine site configuration for BreachBook.
 // The build (site/build.js) is static-first: it reads the build-time D1 export
 // from site/data/, renders templates from site/templates/, and writes the full
 // site to dist/ for Cloudflare Pages. Anything that must not trigger a rebuild
@@ -6,11 +6,11 @@
 
 module.exports = {
   site: {
-    name: 'BreachLedger',
+    name: 'BreachBook',
     tagline: 'A public record of disclosed U.S. data breaches',
-    // Set SITE_ORIGIN at build time for production (e.g. https://breachledger.com);
-    // the placeholder keeps canonical URLs obviously non-live until then.
-    origin: process.env.SITE_ORIGIN || 'https://breachledger.example',
+    // Live origin. Override with SITE_ORIGIN at build time for preview
+    // deployments so canonical URLs match the host actually serving them.
+    origin: process.env.SITE_ORIGIN || 'https://breachbook.org',
     language: 'en-US',
   },
 

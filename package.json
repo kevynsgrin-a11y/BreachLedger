@@ -2,7 +2,7 @@
   "name": "breachledger",
   "version": "1.0.0",
   "private": true,
-  "description": "A structured public record of disclosed U.S. data breaches, with a remediation engine and litigation tracking. Every published fact traces to a citable government or court source.",
+  "description": "BreachBook (breachbook.org) — a structured public record of disclosed U.S. data breaches, with a remediation engine and litigation tracking. Every published fact traces to a citable government or court source. The package/infrastructure name remains 'breachledger' from the original build.",
   "type": "commonjs",
   "workspaces": [
     "packages/*",

@@ -4,8 +4,8 @@ name: Deploy to Cloudflare Pages
 # secrets exist (Settings > Secrets and variables > Actions):
 #   CLOUDFLARE_API_TOKEN   - API token with Pages:Edit (+ D1:Edit, KV:Edit for provisioning)
 #   CLOUDFLARE_ACCOUNT_ID  - the Cloudflare account id
-# and one repository variable:
-#   SITE_ORIGIN            - the live origin, e.g. https://breachledger.com
+# Optionally set the repository variable SITE_ORIGIN to override the build
+# origin; it defaults to the production domain https://breachbook.org.
 # Without the secrets the workflow fails at the deploy step and publishes nothing.
 
 on:
@@ -30,7 +30,7 @@ jobs:
       - run: npm test
       - run: npm run build
         env:
-          SITE_ORIGIN: ${{ vars.SITE_ORIGIN }}
+          SITE_ORIGIN: ${{ vars.SITE_ORIGIN || 'https://breachbook.org' }}
       - name: Deploy to Pages
         uses: cloudflare/wrangler-action@v3
         with:

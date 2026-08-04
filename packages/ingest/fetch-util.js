@@ -6,8 +6,9 @@ const crypto = require('crypto');
 
 // Descriptive User-Agent with a contact URL — required by SEC EDGAR policy and
 // basic courtesy toward state AG portals. Getting IP-banned is an expensive,
-// avoidable mistake. The domain is a placeholder until production launch.
-const USER_AGENT = 'BreachLedgerBot/1.0 (+https://breachledger.example/sources; public-records ingest)';
+// avoidable mistake. The contact URL must stay reachable and carry a way to
+// reach us; /sources is that page.
+const USER_AGENT = 'BreachBookBot/1.0 (+https://breachbook.org/sources; public-records ingest)';
 
 const MIN_INTERVAL_MS = 1000; // <=1 req/sec per host
 const DEFAULT_TIMEOUT_MS = 30_000;

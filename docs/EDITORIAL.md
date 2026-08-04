@@ -17,7 +17,7 @@ choose the option that makes the site look more like a government record and les
 
 - No legal advice. Banned constructions: "you should" (in an entitlement/advice sense), "you are entitled
   to," "we can file for you," "you should sue." Use "the settlement agreement provides," "state law requires."
-- Standing disclaimer on every litigation and settlement page: BreachLedger is not a law firm, not a
+- Standing disclaimer on every litigation and settlement page: BreachBook is not a law firm, not a
   settlement administrator, and cannot process or advise on claims. A settlement page without this
   disclaimer does not ship.
 - Never accept claim information. Every settlement page deep-links to the official administrator's domain —
