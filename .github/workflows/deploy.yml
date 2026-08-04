@@ -27,6 +27,19 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+
+      # Fail early and legibly rather than 40 lines deep in a wrangler stack trace.
+      - name: Verify credentials are present
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN is not set. Add it under Settings > Secrets and variables > Actions, then re-run. Nothing was deployed."
+            exit 1
+          fi
+          if [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::error::CLOUDFLARE_ACCOUNT_ID is not set. Add it under Settings > Secrets and variables > Actions, then re-run. Nothing was deployed."
+            exit 1
+          fi
+
       - run: npm test
       - run: npm run build
         env:
