@@ -89,14 +89,22 @@ function migrateAndSeed() {
   run('npx wrangler d1 execute breachledger --remote --file .wrangler/tmp-seed.sql', { stdio: 'inherit' });
 }
 
+// Must match the --branch value used by `npm run deploy` (PAGES_BRANCH, default
+// `main`). A deployment whose branch differs from the project's production
+// branch is published as a PREVIEW: it succeeds, prints a *.pages.dev URL, and
+// the custom domain keeps serving the old production build. Silent and costly.
+const PRODUCTION_BRANCH = process.env.PAGES_BRANCH || 'main';
+
 function pagesProject() {
   try {
-    run('npx wrangler pages project create breachledger --production-branch claude/breachledger-build-y3652a');
-    console.log('Pages project `breachledger` created.');
+    run(`npx wrangler pages project create breachledger --production-branch ${PRODUCTION_BRANCH}`);
+    console.log(`Pages project \`breachledger\` created (production branch: ${PRODUCTION_BRANCH}).`);
   } catch (e) {
     const msg = String(e.stderr || e.message || '');
-    if (/already exists/i.test(msg)) console.log('Pages project `breachledger` already exists.');
-    else throw e;
+    if (/already exists/i.test(msg)) {
+      console.log('Pages project `breachledger` already exists — leaving its settings alone.');
+      console.log(`  Confirm its Production branch is "${PRODUCTION_BRANCH}", or set PAGES_BRANCH to match it before deploying.`);
+    } else throw e;
   }
 }
 
@@ -110,9 +118,11 @@ migrateAndSeed();
 pagesProject();
 console.log(`
 Provisioning complete. Next:
-  1. npm run deploy   (builds with origin https://breachbook.org by default)
-  2. Confirm the custom domain breachbook.org is attached to the Pages project
-     in the Cloudflare dashboard (Pages > breachledger > Custom domains).
+  1. npm run deploy   (builds with origin https://breachbook.org by default,
+     publishes to branch "${PRODUCTION_BRANCH}" — must equal the project's
+     Production branch or the upload becomes a preview, not production)
+  2. Attach the custom domain breachbook.org to the Pages project in the
+     Cloudflare dashboard (Pages > breachledger > Custom domains).
   3. Commit the patched wrangler.toml ids.
 Workers (ingest-cron, api, alerts) deploy in Phase 1+ — do not deploy a cron
 that has nothing to ingest yet.`);

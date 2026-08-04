@@ -31,9 +31,11 @@ jobs:
       - run: npm run build
         env:
           SITE_ORIGIN: ${{ vars.SITE_ORIGIN || 'https://breachbook.org' }}
+      # --branch must equal the Pages project's Production branch, or the
+      # upload is published as a preview and the custom domain is unaffected.
       - name: Deploy to Pages
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name breachledger
+          command: pages deploy dist --project-name breachledger --branch ${{ vars.PAGES_BRANCH || 'main' }}

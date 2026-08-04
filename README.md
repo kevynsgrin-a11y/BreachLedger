@@ -62,7 +62,13 @@ npm run deploy                    # test + build + publish to Pages
 `npm run deploy` builds with the production origin `https://breachbook.org` by default, so canonical and
 Open Graph URLs are correct with no extra flags. For a preview deployment served from another host, pass the
 host explicitly so canonical URLs don't point at production:
-`SITE_ORIGIN=https://<preview-host> npm run deploy`.
+`SITE_ORIGIN=https://<preview-host> npm run deploy:preview`.
+
+**Production branch.** `npm run deploy` publishes to branch `main` (override with `PAGES_BRANCH`). This value
+**must equal the Pages project's Production branch setting**. If it doesn't, Cloudflare accepts the upload,
+prints a success message and a `*.pages.dev` URL — but publishes it as a *preview*, and breachbook.org
+continues serving whatever was there before. This failure is silent; check the deploy output says the
+production URL, not a hashed preview subdomain.
 
 The custom domain is attached in the Cloudflare dashboard (Pages > breachledger > Custom domains). Commit
 the patched wrangler.toml ids after the first provision.
