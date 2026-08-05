@@ -31,6 +31,18 @@ const parseJson = (out) => {
 };
 
 function ensureAuth() {
+  // A scoped API token may lack User Details:Read, which makes `wrangler whoami`
+  // fail even though the token is perfectly valid for Pages/D1/KV work. Treat
+  // the presence of the token as authoritative and let the real API calls be
+  // the test.
+  if (process.env.CLOUDFLARE_API_TOKEN) {
+    if (!process.env.CLOUDFLARE_ACCOUNT_ID) {
+      console.error('CLOUDFLARE_API_TOKEN is set but CLOUDFLARE_ACCOUNT_ID is not; token auth needs both.');
+      process.exit(1);
+    }
+    console.log('using CLOUDFLARE_API_TOKEN from the environment');
+    return;
+  }
   try {
     run('npx wrangler whoami');
   } catch (e) {
