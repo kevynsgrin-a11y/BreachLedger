@@ -15,6 +15,10 @@ const jsf = require('./hhs-jsf');
 
 const BASE = 'https://ocrportal.hhs.gov/ocr/breach/';
 const FRONT_PAGE = `${BASE}breach_report.jsf`;
+// The data grid. Fetching it directly is the primary path (two requests);
+// navigating from the front page is the fallback, and was observed to land on
+// a chrome page carrying no JSF commands at all.
+const GRID_PAGE = `${BASE}breach_report_hip.jsf`;
 const GRID_LABEL = 'View HIPAA Breach Reports';
 
 class CookieJar {
@@ -35,6 +39,18 @@ class CookieJar {
   }
 }
 
+function assertCsv(body, csvCommand) {
+  if (/^\s*</.test(body) || /<html/i.test(body.slice(0, 500))) {
+    throw new Error(
+      `hhs_ocr: expected CSV, received HTML (session expiry or wrong command id ` +
+        `${csvCommand}). Excerpt: ${jsf.excerpt(body)}`
+    );
+  }
+  if (!/,/.test(body.split('\n')[0] || '')) {
+    throw new Error(`hhs_ocr: response has no comma-delimited header row. Excerpt: ${jsf.excerpt(body)}`);
+  }
+}
+
 function assertHtml(text, step) {
   if (!/<html|<form/i.test(text)) {
     throw new Error(`hhs_ocr ${step}: expected an HTML page, got: ${jsf.excerpt(text)}`);
@@ -48,7 +64,38 @@ function assertHtml(text, step) {
 async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
   const jar = new CookieJar();
   const steps = {};
+  const attempts = [];
 
+  // --- Primary path: fetch the grid directly ------------------------------
+  {
+    const direct = await fetchImpl(GRID_PAGE, { raw: true, jar });
+    const hidden = jsf.extractHiddenInputs(direct.body);
+    const csvCommand = jsf.findCsvExportCommand(direct.body);
+    if (jsf.extractViewState(hidden) && csvCommand) {
+      steps.path = 'direct';
+      steps.csvCommand = csvCommand;
+      const action = new URL(jsf.extractFormAction(direct.body) || GRID_PAGE, GRID_PAGE).toString();
+      const csv = await fetchImpl(action, {
+        raw: true,
+        jar,
+        method: 'POST',
+        body: jsf.buildCommandBody(hidden, csvCommand),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      });
+      assertCsv(csv.body, csvCommand);
+      steps.bytes = csv.body.length;
+      steps.checksum = csv.checksum;
+      steps.retrieved_at = csv.retrieved_at;
+      return { csv: csv.body, steps };
+    }
+    attempts.push(
+      `direct GET ${GRID_PAGE}: ${direct.body.length} bytes, ` +
+        `viewState=${Boolean(jsf.extractViewState(hidden))}, csvCommand=${csvCommand || 'none'}, ` +
+        `commands=${jsf.listCommandCandidates(direct.body).length}`
+    );
+  }
+
+  // --- Fallback path: navigate from the front page ------------------------
   // --- Step 1: front page -------------------------------------------------
   const front = await fetchImpl(FRONT_PAGE, { raw: true, jar });
   assertHtml(front.body, 'step 1 (front page)');
@@ -91,8 +138,9 @@ async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
     const candidates = jsf.listCommandCandidates(grid.body);
     const diag = jsf.exportDiagnostics(grid.body);
     throw new Error(
-      'hhs_ocr step 2: no CSV export control found on the grid page. Refusing to guess and ' +
+      'hhs_ocr: no CSV export control found by either path. Refusing to guess and ' +
         'download the wrong format.\n' +
+        `  attempts: ${attempts.join(' | ')}\n` +
         `  page bytes: ${grid.body.length}\n` +
         `  JSF commands found (${candidates.length}):\n` +
         candidates.map((c) => `    - ${c.commandId} label="${c.label}" attrs=${c.attrs}`).join('\n') +
@@ -112,18 +160,9 @@ async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
 
-  // An HTML response here means the session expired or the command was wrong —
-  // the CSV parser would otherwise fail confusingly several layers later.
-  if (/^\s*</.test(csv.body) || /<html/i.test(csv.body.slice(0, 500))) {
-    throw new Error(
-      `hhs_ocr step 3: expected CSV, received HTML (session expiry or wrong command id ` +
-        `${csvCommand}). Excerpt: ${jsf.excerpt(csv.body)}`
-    );
-  }
-  if (!/,/.test(csv.body.split('\n')[0] || '')) {
-    throw new Error(`hhs_ocr step 3: response has no comma-delimited header row. Excerpt: ${jsf.excerpt(csv.body)}`);
-  }
+  assertCsv(csv.body, csvCommand);
 
+  steps.path = 'front-page-navigation';
   steps.bytes = csv.body.length;
   steps.checksum = csv.checksum;
   steps.retrieved_at = csv.retrieved_at;
