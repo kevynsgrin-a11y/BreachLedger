@@ -85,9 +85,19 @@ async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
   }
   const csvCommand = jsf.findCsvExportCommand(grid.body);
   if (!csvCommand) {
+    // Dump what the page actually offers rather than a generic excerpt: the
+    // portal is on PrimeFaces 12, whose exporters are icon-font elements, and
+    // a redesign is exactly the case this error needs to make diagnosable.
+    const candidates = jsf.listCommandCandidates(grid.body);
+    const diag = jsf.exportDiagnostics(grid.body);
     throw new Error(
-      'hhs_ocr step 2: no CSV export control found on the grid page. The exporter icons may ' +
-        `have changed; refusing to guess and download the wrong format. Excerpt: ${jsf.excerpt(grid.body)}`
+      'hhs_ocr step 2: no CSV export control found on the grid page. Refusing to guess and ' +
+        'download the wrong format.\n' +
+        `  page bytes: ${grid.body.length}\n` +
+        `  JSF commands found (${candidates.length}):\n` +
+        candidates.map((c) => `    - ${c.commandId} label="${c.label}" attrs=${c.attrs}`).join('\n') +
+        `\n  markup mentioning csv/export (${diag.length}):\n` +
+        diag.map((d) => `    - ${d}`).join('\n')
     );
   }
   steps.csvCommand = csvCommand;

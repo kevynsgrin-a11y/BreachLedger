@@ -36,7 +36,8 @@ test('maps the breach-type vocabulary onto the canonical enum', () => {
   assert.equal(hhs.mapVector('Theft'), 'loss');
   assert.equal(hhs.mapVector('Loss'), 'loss');
   assert.equal(hhs.mapVector('Improper Disposal'), 'improper_disposal');
-  assert.equal(hhs.mapVector('Unauthorized Access/Disclosure'), 'insider');
+  // Spans insider and external actors; the export does not distinguish them.
+  assert.equal(hhs.mapVector('Unauthorized Access/Disclosure'), 'unknown');
   assert.equal(hhs.mapVector('Other'), 'unknown');
   assert.equal(hhs.mapVector(''), 'unknown');
 });

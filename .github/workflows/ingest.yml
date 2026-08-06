@@ -55,6 +55,9 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
+          # pipefail is essential: without it the exit code comes from tee and
+          # a failed ingest reports as a successful step.
+          set -o pipefail
           node packages/ingest/run.js --source hhs_ocr --remote \
             ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} 2>&1 | tee /tmp/ingest.log
 

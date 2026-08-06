@@ -58,10 +58,15 @@ const LOCATIONS = new Set([
 // several comma-separated values. Mapped onto the canonical breach_vector enum.
 // Ordered by precedence: when a record reports both a hack and a theft, the
 // deliberate-attack reading is the more informative one to publish.
-const VECTOR_PRECEDENCE = ['hacking', 'insider', 'improper_disposal', 'loss', 'unknown'];
+const VECTOR_PRECEDENCE = ['hacking', 'improper_disposal', 'loss', 'insider', 'unknown'];
 const VECTOR_MAP = {
   'hacking/it incident': 'hacking',
-  'unauthorized access/disclosure': 'insider',
+  // NOT 'insider'. HHS's "Unauthorized Access/Disclosure" covers both employee
+  // snooping and access by outsiders, and the export does not say which. It is
+  // the second-largest category in the dataset (roughly one record in five), so
+  // collapsing it to 'insider' would misattribute cause at scale. 'unknown' is
+  // the honest target until a source distinguishes them.
+  'unauthorized access/disclosure': 'unknown',
   theft: 'loss',
   loss: 'loss',
   'improper disposal': 'improper_disposal',

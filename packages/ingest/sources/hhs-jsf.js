@@ -63,38 +63,83 @@ function extractFormAction(html, formId = 'ocrForm') {
  *      {'ocrForm:j_idt39':'ocrForm:j_idt39'},'');return false">View HIPAA Breach Reports</a>
  */
 function findCommandByLabel(html, label) {
-  const anchorRe = /<a\b[^>]*onclick\s*=\s*"([^"]*mojarra\.jsfcljs[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-  let m;
   const wanted = label.toLowerCase().replace(/\s+/g, ' ').trim();
-  while ((m = anchorRe.exec(html))) {
-    const text = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-    if (text.includes(wanted)) {
-      const cmd = /\{\s*'([^']+)'\s*:/.exec(decodeEntities(m[1]));
-      if (cmd) return cmd[1];
-    }
+  for (const c of listCommandCandidates(html)) {
+    if (c.label.toLowerCase().includes(wanted)) return c.commandId;
   }
   return null;
 }
 
+// A JSF command can be triggered from an <a>, a <button>, or a PrimeFaces
+// widget, and can be wired through mojarra.jsfcljs (non-AJAX) or PrimeFaces.ab
+// (AJAX). Match the element generically rather than assuming an anchor.
+const COMMAND_ELEMENT_RE =
+  /<(a|button|span|div|li)\b([^>]*\bonclick\s*=\s*"([^"]*(?:mojarra\.jsfcljs|PrimeFaces\.ab|PrimeFaces\.addSubmitParam)[^"]*)"[^>]*)>([\s\S]*?)<\/\1>/gi;
+
+function commandIdFrom(onclick) {
+  const decoded = decodeEntities(onclick);
+  // mojarra.jsfcljs(form, {'ocrForm:j_idt384':'ocrForm:j_idt384'}, '')
+  const mojarra = /\{\s*'([^']+)'\s*:/.exec(decoded);
+  if (mojarra) return mojarra[1];
+  // PrimeFaces.ab({s:"ocrForm:j_idt384", ...})
+  const pf = /\bs\s*:\s*["']([^"']+)["']/.exec(decoded);
+  if (pf) return pf[1];
+  return null;
+}
+
 /**
- * Find the CSV export command. The export icons (Excel, PDF, CSV, XML) are
- * siblings in one span, so selection MUST be by the CSV icon itself — picking
- * by position silently downloads a spreadsheet that the CSV parser will reject
- * or, worse, misread.
+ * Find the CSV export command.
+ *
+ * The exporters (Excel, PDF, CSV, XML) sit together, so selection MUST be by
+ * what identifies CSV specifically — picking by position silently downloads a
+ * spreadsheet that the parser will reject or, worse, misread.
+ *
+ * The portal runs PrimeFaces 12, which renders exporters as icon-font elements
+ * (primeicons) rather than the <img alt="CSV"> markup that older scrapers
+ * document, so every plausible CSV signal is checked: alt/title/aria-label
+ * text, icon class names, element id, and visible label text.
  */
 function findCsvExportCommand(html) {
-  const anchorRe = /<a\b[^>]*onclick\s*=\s*"([^"]*mojarra\.jsfcljs[^"]*)"[^>]*>([\s\S]*?)<\/a>/gi;
-  let m;
-  while ((m = anchorRe.exec(html))) {
-    const inner = m[2];
-    const isCsv =
-      /<img\b[^>]*\b(?:alt|title)\s*=\s*["'][^"']*csv[^"']*["']/i.test(inner) ||
-      /\bsrc\s*=\s*["'][^"']*csv[^"']*\.(?:png|gif|svg)["']/i.test(inner);
-    if (!isCsv) continue;
-    const cmd = /\{\s*'([^']+)'\s*:/.exec(decodeEntities(m[1]));
-    if (cmd) return cmd[1];
+  const candidates = listCommandCandidates(html);
+  for (const c of candidates) {
+    if (c.isCsv) return c.commandId;
   }
   return null;
+}
+
+/** Every JSF command on the page, annotated — used for discovery and for
+ *  diagnosing a portal redesign without another round trip. */
+function listCommandCandidates(html) {
+  const out = [];
+  let m;
+  COMMAND_ELEMENT_RE.lastIndex = 0;
+  while ((m = COMMAND_ELEMENT_RE.exec(html))) {
+    const attrs = m[2] || '';
+    const inner = m[4] || '';
+    const commandId = commandIdFrom(m[3] || '');
+    if (!commandId) continue;
+    const haystack = `${attrs} ${inner}`;
+    const label = inner.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const isCsv =
+      /\b(?:alt|title|aria-label)\s*=\s*["'][^"']*\bcsv\b[^"']*["']/i.test(haystack) ||
+      /\bsrc\s*=\s*["'][^"']*csv[^"']*\.(?:png|gif|svg)["']/i.test(haystack) ||
+      /\bclass\s*=\s*["'][^"']*(?:pi-file-csv|fa-file-csv|ui-icon-csv)[^"']*["']/i.test(haystack) ||
+      /\bid\s*=\s*["'][^"']*csv[^"']*["']/i.test(haystack) ||
+      /^csv$/i.test(label);
+    out.push({ commandId, isCsv, label: label.slice(0, 60), attrs: attrs.slice(0, 200) });
+  }
+  return out;
+}
+
+/** Anything on the page mentioning csv/export, for diagnosing a redesign. */
+function exportDiagnostics(html) {
+  const hits = [];
+  const re = /[^<>]{0,80}(?:csv|export|exporter)[^<>]{0,80}/gi;
+  let m;
+  while ((m = re.exec(html)) && hits.length < 25) {
+    hits.push(m[0].replace(/\s+/g, ' ').trim());
+  }
+  return hits;
 }
 
 /** Body for a JSF command POST: all hidden fields plus the command's own id. */
@@ -110,6 +155,9 @@ function excerpt(html, chars = 400) {
 }
 
 module.exports = {
+  listCommandCandidates,
+  exportDiagnostics,
+  commandIdFrom,
   extractHiddenInputs,
   extractViewState,
   extractFormAction,
