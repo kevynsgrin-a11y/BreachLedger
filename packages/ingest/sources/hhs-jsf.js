@@ -143,6 +143,24 @@ function findCommandMatching(html, pattern) {
   return null;
 }
 
+/**
+ * Every distinct .jsf page linked from this one. The portal's other views live
+ * at their own URLs rather than behind in-page toggles, so this is how a new
+ * or moved view is located without guessing.
+ */
+function linkedPages(html) {
+  const out = new Set();
+  const re = /<a\b[^>]*\bhref\s*=\s*["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m;
+  while ((m = re.exec(html))) {
+    const href = decodeEntities(m[1]);
+    if (!/\.jsf(\?|;|$)/i.test(href)) continue;
+    const label = m[2].replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 50);
+    out.add(`${href}${label ? ` ("${label}")` : ''}`);
+  }
+  return [...out];
+}
+
 /** Anything on the page mentioning csv/export, for diagnosing a redesign. */
 function exportDiagnostics(html) {
   const hits = [];
@@ -233,6 +251,7 @@ function excerpt(html, chars = 400) {
 }
 
 module.exports = {
+  linkedPages,
   findCommandMatching,
   buildCommandFields,
   buildMultipartBody,

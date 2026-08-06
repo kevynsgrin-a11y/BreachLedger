@@ -190,6 +190,20 @@ test('refuses to publish a partial record when the Archive toggle is missing', a
   };
   await assert.rejects(
     () => fetchAllViews({ fetchImpl: impl }),
-    /could not find the Archive view toggle[\s\S]*Refusing to publish/
+    /no Archive view toggle[\s\S]*refusing to publish only the last ~24 months/i
   );
+});
+
+test('coverage=current downgrades a missing archive to a warning, not a silent pass', async () => {
+  const noToggle = GRID_WITH_TOGGLE.replace(/<a[^>]*archiveRptButton[\s\S]*?<\/a>/i, '');
+  const impl = async (url, opts = {}) => {
+    const method = opts.method || 'GET';
+    if (method === 'GET') return { body: noToggle, checksum: 'g', retrieved_at: 'T' };
+    return { body: CSV, checksum: 'c', retrieved_at: 'T' };
+  };
+  const views = await fetchAllViews({ fetchImpl: impl, requireArchive: false });
+  // The recent view is still returned, and the archive is simply absent —
+  // never fabricated, never silently counted as captured.
+  assert.equal(views.length, 1);
+  assert.equal(views[0].view, 'under_investigation');
 });

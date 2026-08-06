@@ -174,7 +174,7 @@ const ARCHIVE_PATTERN = /archive/i;
  *
  * @returns {Array<{view, csv, checksum, retrieved_at, steps}>}
  */
-async function fetchAllViews({ fetchImpl = politeFetch } = {}) {
+async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } = {}) {
   const views = [];
 
   // View 1: whatever the grid shows by default (Under Investigation).
@@ -185,14 +185,31 @@ async function fetchAllViews({ fetchImpl = politeFetch } = {}) {
   const jar = new CookieJar();
   const attempts = [];
   const grid = await fetchImpl(GRID_PAGE, { raw: true, jar });
+  // Discovery aid: what other portal pages exist, for locating the archive.
+  const linked = jsf.linkedPages(grid.body);
+  if (linked.length) console.error(`hhs_ocr: .jsf pages linked from the grid: ${linked.join(' | ')}`);
   const gridHidden = jsf.extractHiddenInputs(grid.body);
   const toggle = jsf.findCommandMatching(grid.body, ARCHIVE_PATTERN);
   if (!toggle) {
-    throw new Error(
-      'hhs_ocr: could not find the Archive view toggle on the grid page. Refusing to publish ' +
-        'only the last ~24 months as though it were the complete record.\n' +
-        jsf.listCommandCandidates(grid.body).map((c) => `  - ${c.commandId} label="${c.label}"`).join('\n')
+    // The archive is not an in-page toggle on this URL. Report every command
+    // AND every linked .jsf page, so the archive's real location is
+    // identifiable from one run rather than guessed at.
+    const err = new Error(
+      'hhs_ocr: no Archive view toggle on the grid page. The archived records are reached ' +
+        'some other way; refusing to publish only the last ~24 months as though it were the ' +
+        'complete record.\n' +
+        '  JSF commands on the grid:\n' +
+        jsf.listCommandCandidates(grid.body).map((c) => `    - ${c.commandId} label="${c.label}"`).join('\n') +
+        '\n  .jsf pages linked from the grid:\n' +
+        jsf.linkedPages(grid.body).map((l) => `    - ${l}`).join('\n')
     );
+    err.archiveNotFound = true;
+    if (requireArchive) throw err;
+    // Documented partial coverage: the caller has accepted that this run
+    // captures only the recent view, and the site states that coverage
+    // explicitly on /sources. Still logged at full volume.
+    console.error(`hhs_ocr: WARNING archive view not captured.\n${err.message}`);
+    return views;
   }
   const gridAction = new URL(jsf.extractFormAction(grid.body) || GRID_PAGE, GRID_PAGE).toString();
 
@@ -211,10 +228,14 @@ async function fetchAllViews({ fetchImpl = politeFetch } = {}) {
     if (candidate) { archived = candidate; break; }
   }
   if (!archived) {
-    throw new Error(
+    const err = new Error(
       'hhs_ocr: found the Archive toggle but could not export from the archived view.\n' +
         attempts.map((a) => `  - ${a}`).join('\n')
     );
+    err.archiveNotFound = true;
+    if (requireArchive) throw err;
+    console.error(`hhs_ocr: WARNING archive view not captured.\n${err.message}`);
+    return views;
   }
   views.push({
     view: 'archive',

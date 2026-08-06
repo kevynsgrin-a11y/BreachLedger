@@ -69,6 +69,11 @@ async function main() {
   const remote = Boolean(arg('remote', false));
   const dryRun = Boolean(arg('dry-run', false));
   const fromFile = arg('from-file', null);
+  // Coverage policy. 'all' (default) requires the archive view and fails
+  // otherwise; 'current' permits a documented partial ingest of the recent
+  // view only. Partial is acceptable ONLY because /sources states the exact
+  // coverage -- what is forbidden is presenting a slice AS the whole record.
+  const coverage = arg('coverage', 'all');
 
   if (sourceId !== 'hhs_ocr') {
     throw new Error(`ingest: source '${sourceId}' is not implemented yet (Phase 1 covers hhs_ocr only)`);
@@ -91,7 +96,8 @@ async function main() {
     console.error(`ingest: reading ${fromFile} (${text.length} bytes) instead of fetching`);
   } else {
     console.error('ingest: driving the HHS OCR portal export sequence (both views)...');
-    views = await fetchAllViews();
+    views = await fetchAllViews({ requireArchive: coverage !== 'current' });
+    if (coverage === 'current') console.error('ingest: coverage=current (recent view only, documented on /sources)');
     for (const v of views) {
       console.error(
         `ingest: view ${v.view}: ${v.steps.bytes || v.csv.length} bytes via ${v.steps.path} path, ` +

@@ -8,7 +8,7 @@ sources is never rendered.
 
 | Source | Type code | Format | Retrieval method | Endpoint | Phase | Last verified |
 | --- | --- | --- | --- | --- | --- | --- |
-| HHS Office for Civil Rights breach portal | `hhs_ocr` | CSV export | scheduled fetch, daily | [ocrportal.hhs.gov/ocr/breach/breach_report.jsf](https://ocrportal.hhs.gov/ocr/breach/breach_report.jsf) | 1 | pending — endpoint documented 2026-08-02, not yet fetch-verified |
+| HHS Office for Civil Rights breach portal | `hhs_ocr` | CSV export via JSF form postback | scheduled fetch, daily 06:00 UTC | [ocrportal.hhs.gov/ocr/breach/breach_report_hip.jsf](https://ocrportal.hhs.gov/ocr/breach/breach_report_hip.jsf) | 1 | **verified 2026-08-06** — retrieval confirmed against the live portal |
 | Maine Attorney General breach notifications | `maine_ag` | HTML list + PDF letters | scheduled fetch, daily | [maine.gov/ag/consumer/identity_theft/](https://www.maine.gov/ag/consumer/identity_theft/) | 2 | pending — endpoint documented 2026-08-02, not yet fetch-verified |
 | California Attorney General breach list | `ca_ag` | HTML table + sample notices | scheduled fetch, daily | [oag.ca.gov/privacy/databreach/list](https://oag.ca.gov/privacy/databreach/list) | 2 | pending — endpoint documented 2026-08-02, not yet fetch-verified |
 | Washington Attorney General breach notifications | `wa_ag` | HTML/dashboard | scheduled fetch, daily | [atg.wa.gov/data-breach-notifications](https://www.atg.wa.gov/data-breach-notifications) | 2 | pending — endpoint documented 2026-08-02, not yet fetch-verified |
@@ -19,6 +19,25 @@ sources is never rendered.
 Endpoint verification policy: government portals rotate paths without notice. Each ingest run re-verifies its
 endpoint and **fails loudly on a 404** — a source is never silently skipped. When an endpoint moves, this table
 is updated with the new URL and a fresh verification date.
+
+## Current coverage, stated precisely
+
+Being explicit about what this record does and does not yet contain matters more
+than appearing complete.
+
+- **HHS Office for Civil Rights** — the portal presents its data in two views. The
+  "Under Investigation" view holds breaches reported in roughly the last 24 months, and
+  older resolved cases sit in an archive. **This site currently carries the Under
+  Investigation view only.** The archive is not exposed as a control on the report page,
+  and rather than guess at how to reach it, we publish what we have verified and say so
+  here. Backfilling the archive is the next scheduled work. Until it lands, treat the
+  absence of an older breach from this record as "not yet ingested," not as evidence that
+  no such breach was reported.
+- The HHS portal covers breaches of protected health information affecting 500 or more
+  individuals. Smaller breaches are reported to HHS annually and are not published in this
+  dataset, so they cannot appear here.
+- State attorney general sources, SEC filings, and litigation records are not yet ingested.
+  The sources above marked for later phases are documented, not live.
 
 ## Retrieval conduct
 

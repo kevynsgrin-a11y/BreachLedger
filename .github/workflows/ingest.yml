@@ -18,6 +18,11 @@ on:
         description: 'Parse and score, but do not write to D1'
         type: boolean
         default: false
+      coverage:
+        description: 'all = require the archive view; current = documented partial ingest of the recent view only'
+        type: choice
+        options: [all, current]
+        default: all
   schedule:
     - cron: '0 6 * * *'
 
@@ -59,6 +64,7 @@ jobs:
           # a failed ingest reports as a successful step.
           set -o pipefail
           node packages/ingest/run.js --source hhs_ocr --remote \
+            --coverage "${{ github.event.inputs.coverage || 'all' }}" \
             ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} 2>&1 | tee /tmp/ingest.log
 
       - name: Publish ingest summary
