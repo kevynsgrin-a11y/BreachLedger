@@ -20,7 +20,7 @@ const path = require('path');
 const { execFileSync } = require('child_process');
 
 const hhs = require('./sources/hhs-ocr');
-const { fetchBreachCsv } = require('./sources/hhs-ocr-fetch');
+const { fetchAllViews } = require('./sources/hhs-ocr-fetch');
 const { validate, logReject } = require('./validate');
 const { assignSlugs } = require('./slug');
 const { buildStatements, batch } = require('./d1-writer');
@@ -75,54 +75,70 @@ async function main() {
   }
 
   // --- fetch -------------------------------------------------------------
-  let csvText;
-  let retrievedAt;
-  let checksum;
-  let sourceUrl = hhs.PORTAL_URL;
+  // Both portal views are required. "Under Investigation" holds only the last
+  // ~24 months; the rest of the history is in "Archive". Publishing one view
+  // alone would present a slice as the complete government record.
+  let views;
 
   if (fromFile) {
-    csvText = fs.readFileSync(fromFile, 'utf8');
-    retrievedAt = new Date().toISOString();
-    checksum = require('crypto').createHash('sha256').update(csvText).digest('hex');
-    console.error(`ingest: reading ${fromFile} (${csvText.length} bytes) instead of fetching`);
+    const text = fs.readFileSync(fromFile, 'utf8');
+    views = [{
+      view: 'file',
+      csv: text,
+      retrieved_at: new Date().toISOString(),
+      checksum: require('crypto').createHash('sha256').update(text).digest('hex'),
+    }];
+    console.error(`ingest: reading ${fromFile} (${text.length} bytes) instead of fetching`);
   } else {
-    console.error(`ingest: driving the HHS OCR portal export sequence...`);
-    const res = await fetchBreachCsv();
-    csvText = res.csv;
-    retrievedAt = res.steps.retrieved_at;
-    checksum = res.steps.checksum;
-    console.error(
-      `ingest: retrieved ${res.steps.bytes} bytes via ${res.steps.path} path, ` +
-        `${res.steps.encoding} encoding, command ${res.steps.csvCommand}`
-    );
+    console.error('ingest: driving the HHS OCR portal export sequence (both views)...');
+    views = await fetchAllViews();
+    for (const v of views) {
+      console.error(
+        `ingest: view ${v.view}: ${v.steps.bytes || v.csv.length} bytes via ${v.steps.path} path, ` +
+          `${v.steps.encoding} encoding, command ${v.steps.csvCommand}`
+      );
+    }
   }
 
-  // --- parse -------------------------------------------------------------
-  const { headers, rows } = hhs.parse(csvText);
-  console.error(`ingest: parsed ${rows.length} rows, ${headers.length} columns`);
-  if (!rows.length) throw new Error('ingest: export contained zero data rows — refusing to proceed');
-
-  // --- normalize + entity resolve ---------------------------------------
+  // --- parse + normalize + entity resolve + dedupe -----------------------
   const unknownVectorTokens = new Set();
   const byId = new Map();
-  for (const row of rows) {
-    const { record, source } = hhs.normalizeRow(row, {
-      retrievedAt,
-      checksum,
-      sourceUrl,
-      unknownVectorTokens,
-    });
-    // --- dedupe: identical id means the same entity reported the same day.
-    const existing = byId.get(record.id);
-    if (existing) {
-      // Union the record: take MAX of records_affected, keep both sources.
-      existing.records_affected = Math.max(existing.records_affected || 0, record.records_affected || 0) || null;
-      existing.sources.push(source);
-      continue;
+  let totalRows = 0;
+
+  for (const v of views) {
+    const { headers, rows } = hhs.parse(v.csv);
+    totalRows += rows.length;
+    console.error(`ingest: view ${v.view}: parsed ${rows.length} rows, ${headers.length} columns`);
+    if (!rows.length) {
+      throw new Error(`ingest: view ${v.view} contained zero data rows — refusing to proceed`);
     }
-    record.sources = [source];
-    byId.set(record.id, record);
+
+    for (const row of rows) {
+      const { record, source } = hhs.normalizeRow(row, {
+        retrievedAt: v.retrieved_at,
+        checksum: v.checksum,
+        sourceUrl: hhs.PORTAL_URL,
+        unknownVectorTokens,
+      });
+      // Dedupe within and across views: an identical id means the same entity
+      // reported on the same date. A record can legitimately appear in both
+      // views around the 24-month boundary.
+      const existing = byId.get(record.id);
+      if (existing) {
+        existing.records_affected = Math.max(existing.records_affected || 0, record.records_affected || 0) || null;
+        // Prefer whichever view supplied OCR's narrative; the archive has it.
+        if (!existing._hhs.web_description && record._hhs.web_description) {
+          existing._hhs.web_description = record._hhs.web_description;
+        }
+        // One source row per (breach, source_type, url) — the writer dedupes,
+        // but avoid queuing an obvious duplicate here.
+        continue;
+      }
+      record.sources = [source];
+      byId.set(record.id, record);
+    }
   }
+  console.error(`ingest: ${totalRows} rows across ${views.length} view(s) -> ${byId.size} distinct records`);
   if (unknownVectorTokens.size) {
     console.error(
       `ingest: WARNING unrecognized "Type of Breach" values (vocabulary drift): ${[...unknownVectorTokens].join(' | ')}`

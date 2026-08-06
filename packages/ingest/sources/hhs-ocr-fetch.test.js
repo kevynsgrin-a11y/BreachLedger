@@ -133,3 +133,63 @@ test('cookie jar absorbs and replays Set-Cookie', () => {
   assert.match(header, /other=1/);
   assert.ok(!header.includes('HttpOnly'));
 });
+
+const { fetchAllViews } = require('./hhs-ocr-fetch');
+
+// Grid carrying both the CSV exporter and an Archive view toggle.
+const GRID_WITH_TOGGLE = `<html><form id="ocrForm" action="/ocr/breach/breach_report_hip.jsf" enctype="multipart/form-data">
+<a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt23':'ocrForm:j_idt23'},'');return false" id="ocrForm:underInvRptButton">Under Investigation</a>
+<a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt24':'ocrForm:j_idt24'},'');return false" id="ocrForm:archiveRptButton">Archive</a>
+<a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt400':'ocrForm:j_idt400'},'');return false"><img alt="CSV" src="/i/csv.png"></a>
+<input type="hidden" name="javax.faces.ViewState" value="VS-GRID"></form></html>`;
+
+const ARCHIVE_CSV = 'Name of Covered Entity,State\nOld Clinic,NY\n';
+
+function mockTwoViewPortal() {
+  const calls = [];
+  const impl = async (url, opts = {}) => {
+    const method = opts.method || 'GET';
+    const body = String(opts.body || '');
+    calls.push({ url, method, body });
+    if (method === 'GET') return { body: GRID_WITH_TOGGLE, checksum: 'g', retrieved_at: 'T' };
+    if (body.includes('j_idt24')) return { body: GRID_WITH_TOGGLE, checksum: 'a', retrieved_at: 'T' }; // toggled view
+    if (body.includes('j_idt400')) {
+      // Return the archive CSV once the toggle has been pressed at least once.
+      const toggled = calls.some((c) => c.body && c.body.includes('j_idt24'));
+      return { body: toggled ? ARCHIVE_CSV : CSV, checksum: 'c', retrieved_at: 'T' };
+    }
+    return { body: '<html>unexpected</html>', checksum: 'x', retrieved_at: 'T' };
+  };
+  return { impl, calls };
+}
+
+test('fetches both the under-investigation and archive views', async () => {
+  const { impl } = mockTwoViewPortal();
+  const views = await fetchAllViews({ fetchImpl: impl });
+  assert.equal(views.length, 2);
+  assert.equal(views[0].view, 'under_investigation');
+  assert.equal(views[0].csv, CSV);
+  assert.equal(views[1].view, 'archive');
+  assert.equal(views[1].csv, ARCHIVE_CSV);
+  assert.equal(views[1].steps.toggle, 'ocrForm:j_idt24');
+});
+
+test('archive view is fetched from a fresh grid, not a reused ViewState', async () => {
+  const { impl, calls } = mockTwoViewPortal();
+  await fetchAllViews({ fetchImpl: impl });
+  // At least two GETs of the grid: one per view.
+  assert.ok(calls.filter((c) => c.method === 'GET' && c.url.includes('breach_report_hip')).length >= 2);
+});
+
+test('refuses to publish a partial record when the Archive toggle is missing', async () => {
+  const noToggle = GRID_WITH_TOGGLE.replace(/<a[^>]*archiveRptButton[\s\S]*?<\/a>/i, '');
+  const impl = async (url, opts = {}) => {
+    const method = opts.method || 'GET';
+    if (method === 'GET') return { body: noToggle, checksum: 'g', retrieved_at: 'T' };
+    return { body: CSV, checksum: 'c', retrieved_at: 'T' };
+  };
+  await assert.rejects(
+    () => fetchAllViews({ fetchImpl: impl }),
+    /could not find the Archive view toggle[\s\S]*Refusing to publish/
+  );
+});

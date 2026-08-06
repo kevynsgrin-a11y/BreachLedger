@@ -158,4 +158,73 @@ async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
   };
 }
 
-module.exports = { fetchBreachCsv, CookieJar, FRONT_PAGE, GRID_PAGE, GRID_LABEL, USER_AGENT };
+// The grid shows one of two views at a time. "Under Investigation" holds only
+// the last ~24 months; everything older lives in "Archive". Both are required
+// for the complete record — publishing only the recent view would present a
+// two-year slice as though it were the full government record.
+const ARCHIVE_PATTERN = /archive/i;
+
+/**
+ * Fetch every view of the breach report.
+ *
+ * Each view is fetched from a FRESH grid page rather than by reusing the
+ * previous page's ViewState: a JSF ViewState is tied to the view it was
+ * rendered for, and reusing one across a toggle is how these scrapers
+ * silently end up exporting the same view twice.
+ *
+ * @returns {Array<{view, csv, checksum, retrieved_at, steps}>}
+ */
+async function fetchAllViews({ fetchImpl = politeFetch } = {}) {
+  const views = [];
+
+  // View 1: whatever the grid shows by default (Under Investigation).
+  const current = await fetchBreachCsv({ fetchImpl });
+  views.push({ view: 'under_investigation', csv: current.csv, checksum: current.steps.checksum, retrieved_at: current.steps.retrieved_at, steps: current.steps });
+
+  // View 2: Archive, reached by toggling on a freshly loaded grid.
+  const jar = new CookieJar();
+  const attempts = [];
+  const grid = await fetchImpl(GRID_PAGE, { raw: true, jar });
+  const gridHidden = jsf.extractHiddenInputs(grid.body);
+  const toggle = jsf.findCommandMatching(grid.body, ARCHIVE_PATTERN);
+  if (!toggle) {
+    throw new Error(
+      'hhs_ocr: could not find the Archive view toggle on the grid page. Refusing to publish ' +
+        'only the last ~24 months as though it were the complete record.\n' +
+        jsf.listCommandCandidates(grid.body).map((c) => `  - ${c.commandId} label="${c.label}"`).join('\n')
+    );
+  }
+  const gridAction = new URL(jsf.extractFormAction(grid.body) || GRID_PAGE, GRID_PAGE).toString();
+
+  let archived = null;
+  for (const enc of jsf.commandEncodings(gridHidden, toggle)) {
+    const toggled = await fetchImpl(gridAction, {
+      raw: true,
+      jar,
+      method: 'POST',
+      body: enc.body,
+      headers: { 'Content-Type': enc.contentType },
+    });
+    const candidate = await exportFromPage({
+      fetchImpl, jar, pageUrl: gridAction, pageBody: toggled.body, attempts, pathName: `archive[${enc.name}]`,
+    });
+    if (candidate) { archived = candidate; break; }
+  }
+  if (!archived) {
+    throw new Error(
+      'hhs_ocr: found the Archive toggle but could not export from the archived view.\n' +
+        attempts.map((a) => `  - ${a}`).join('\n')
+    );
+  }
+  views.push({
+    view: 'archive',
+    csv: archived.csv.body,
+    checksum: archived.csv.checksum,
+    retrieved_at: archived.csv.retrieved_at,
+    steps: { path: archived.path, encoding: archived.encoding, csvCommand: archived.commandId, toggle, bytes: archived.csv.body.length },
+  });
+
+  return views;
+}
+
+module.exports = { fetchBreachCsv, fetchAllViews, CookieJar, FRONT_PAGE, GRID_PAGE, GRID_LABEL, ARCHIVE_PATTERN, USER_AGENT };

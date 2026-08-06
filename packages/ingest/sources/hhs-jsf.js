@@ -131,6 +131,18 @@ function listCommandCandidates(html) {
   return out;
 }
 
+/**
+ * Find a JSF command whose label OR attributes match a pattern. Used for the
+ * view toggles ("Under Investigation" / "Archive"), whose stable handles are
+ * the visible label and the PrimeFaces widgetVar — never the generated id.
+ */
+function findCommandMatching(html, pattern) {
+  for (const c of listCommandCandidates(html)) {
+    if (pattern.test(c.label) || pattern.test(c.attrs)) return c.commandId;
+  }
+  return null;
+}
+
 /** Anything on the page mentioning csv/export, for diagnosing a redesign. */
 function exportDiagnostics(html) {
   const hits = [];
@@ -221,6 +233,7 @@ function excerpt(html, chars = 400) {
 }
 
 module.exports = {
+  findCommandMatching,
   buildCommandFields,
   buildMultipartBody,
   buildAjaxBody,
