@@ -18,6 +18,28 @@ const DOCS = path.join(ROOT, config.paths.docs);
 const ASSETS = path.join(ROOT, config.paths.assets);
 const TEMPLATES = path.join(ROOT, config.paths.templates);
 
+// Human-readable attribution for each source type, shown in citation blocks.
+const SOURCE_LABELS = {
+  hhs_ocr: 'U.S. Department of Health and Human Services, Office for Civil Rights breach portal',
+  maine_ag: 'Maine Attorney General breach notifications',
+  ca_ag: 'California Attorney General breach list',
+  wa_ag: 'Washington Attorney General breach notifications',
+  tx_ag: 'Texas Attorney General data breach reports',
+  sec_8k: 'SEC EDGAR Form 8-K, Item 1.05',
+  courtlistener: 'CourtListener docket record',
+};
+
+function safeJson(value, fallback) {
+  if (value == null) return fallback;
+  if (typeof value !== 'string') return value;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed == null ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
+
 function readData(name) {
   const p = path.join(DATA, `${name}.json`);
   if (!fs.existsSync(p)) return [];
@@ -96,12 +118,19 @@ function main() {
       throw new Error(`build guard failed for asset ${f}: emoji found (spec section 10)`);
     }
     let outName = f;
+    let content = raw;
+    if (f === 'styles.css') {
+      // Severity bar widths as classes, not inline styles: the Content-Security
+      // -Policy is style-src 'self', which blocks style attributes outright.
+      const widths = Array.from({ length: 101 }, (_, n) => `.sev-${n}{width:${n}%}`).join('');
+      content = Buffer.concat([raw, Buffer.from(`\n/* generated severity bar widths */\n${widths}\n`)]);
+    }
     if (f.endsWith('.css')) {
-      const hash = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 10);
+      const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 10);
       outName = f.replace(/\.css$/, `.${hash}.css`);
     }
     assetNames[f] = outName;
-    fs.writeFileSync(path.join(assetOut, outName), raw);
+    fs.writeFileSync(path.join(assetOut, outName), content);
   }
 
   // Build-time D1 export (empty in Phase 0)
@@ -124,13 +153,26 @@ function main() {
   }
   const published = publishableBreaches(breaches, sourcesByBreach);
 
+  const dataClasses = require(path.join(ROOT, 'packages/schema/seed/data-classes.json')).classes;
+  const dataClassMap = Object.fromEntries(dataClasses.map((c) => [c.code, c]));
+
+  // Parse the JSON-encoded columns once, here, so no template has to.
+  for (const b of published) {
+    b.data_classes_parsed = safeJson(b.data_classes, []);
+    b.states_notified_parsed = safeJson(b.states_notified, []);
+    b.remediation_offered_parsed = safeJson(b.remediation_offered, null);
+  }
+
   const ctx = {
     site: config.site,
     assets: assetNames,
+    buildPhase: config.buildPhase,
+    dataClassMap,
+    sourceLabels: SOURCE_LABELS,
     breaches: published,
     litigation,
     rubric: require(path.join(ROOT, 'packages/severity/rubric.json')),
-    dataClasses: require(path.join(ROOT, 'packages/schema/seed/data-classes.json')).classes,
+    dataClasses,
     docs: {
       sources: readDoc('SOURCES.md'),
       corrections: readDoc('CORRECTIONS.md'),
@@ -145,6 +187,53 @@ function main() {
     const html = template.render(ctx);
     guardPage(route.path, html);
     written.push(writePage(route.path, html));
+  }
+
+  // Dynamic routes generated from the record set.
+  const dynamic = (routePath, template) =>
+    config.routes.some((r) => r.path === routePath && r.phase <= config.buildPhase)
+      ? require(path.join(TEMPLATES, `${template}.js`))
+      : null;
+
+  const breachTpl = dynamic('/breach/[slug]', 'breach-detail');
+  if (breachTpl) {
+    for (const breach of published) {
+      const html = breachTpl.render({ ...ctx, breach, sources: sourcesByBreach.get(breach.id) || [] });
+      guardPage(`/breach/${breach.slug}`, html);
+      written.push(writePage(`/breach/${breach.slug}`, html));
+    }
+  }
+
+  const sectorTpl = dynamic('/sector/[sector]', 'sector-hub');
+  if (sectorTpl) {
+    const bySector = new Map();
+    for (const b of published) {
+      if (!b.sector) continue;
+      if (!bySector.has(b.sector)) bySector.set(b.sector, []);
+      bySector.get(b.sector).push(b);
+    }
+    for (const [sector, list] of bySector) {
+      const html = sectorTpl.render({ ...ctx, sector, breaches: list });
+      guardPage(`/sector/${sector}`, html);
+      written.push(writePage(`/sector/${sector}`, html));
+    }
+  }
+
+  const yearTpl = dynamic('/breaches/[year]', 'year-archive');
+  if (yearTpl) {
+    const byYear = new Map();
+    for (const b of published) {
+      const y = (b.notification_date || '').slice(0, 4);
+      if (!/^\d{4}$/.test(y)) continue;
+      if (!byYear.has(y)) byYear.set(y, []);
+      byYear.get(y).push(b);
+    }
+    const years = [...byYear.keys()];
+    for (const [year, list] of byYear) {
+      const html = yearTpl.render({ ...ctx, year, breaches: list, years });
+      guardPage(`/breaches/${year}`, html);
+      written.push(writePage(`/breaches/${year}`, html));
+    }
   }
 
   // Pages platform files

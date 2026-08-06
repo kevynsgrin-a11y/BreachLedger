@@ -27,7 +27,7 @@ module.exports = {
   // phase render nothing and are excluded from sitemaps. This keeps
   // "empty-but-valid" honest — no thin placeholder pages for content that
   // does not exist yet (see spec sections 7 and 8, thin-content guard).
-  buildPhase: 0,
+  buildPhase: 1,
   routes: [
     { path: '/', template: 'home', phase: 0 },
     { path: '/severity', template: 'severity', phase: 0 },

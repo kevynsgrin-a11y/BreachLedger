@@ -76,10 +76,22 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--panel); pa
 
 .deadline { color: var(--deadline-amber); font-weight: 600; }
 
-/* Severity: labeled bar with visible component breakdown — never a bare badge. */
+/* Severity: labeled bar with visible component breakdown — never a bare badge.
+   Fill widths come from generated .sev-N classes (see site/build.js): the CSP
+   is style-src 'self', which blocks inline style attributes. */
 .severity-bar { background: var(--panel); border: 1px solid var(--rule); height: 14px; width: 100%; max-width: 28rem; }
 .severity-bar-fill { background: var(--ink-soft); height: 100%; }
 .severity-breakdown { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-soft); }
+.severity-value { font-family: var(--serif); font-size: 1.5rem; margin: 0.2rem 0 0.5rem; }
+.severity-rubric { font-family: var(--sans); font-size: 0.85rem; color: var(--ink-faint); }
+
+/* Record furniture */
+.breadcrumb { font-size: 0.85rem; color: var(--ink-faint); margin: 1.2rem 0 0; }
+.record-meta { color: var(--ink-soft); margin-top: 0.2rem; }
+.not-disclosed { color: var(--ink-faint); font-style: italic; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.related { font-size: 0.9rem; margin-top: 1.6rem; }
+.corrections-link { font-size: 0.85rem; color: var(--ink-faint); border-top: 1px solid var(--rule); padding-top: 0.8rem; margin-top: 1.6rem; }
 
 /* Source citations are first-class page furniture, not a footnote. */
 .citations {

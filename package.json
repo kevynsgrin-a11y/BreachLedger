@@ -19,7 +19,7 @@
     "provision": "node scripts/provision.js",
     "deploy": "npm test && npm run build && wrangler pages deploy dist --project-name breachledger --branch \"${PAGES_BRANCH:-main}\" --commit-dirty=true",
     "deploy:preview": "npm run build && wrangler pages deploy dist --project-name breachledger --branch preview --commit-dirty=true",
-    "test": "node --test packages/severity/score.test.js packages/ingest/entity-resolve.test.js site/templates/markdown.test.js"
+    "test": "node --test packages/severity/score.test.js packages/ingest/entity-resolve.test.js packages/ingest/csv.test.js packages/ingest/slug.test.js site/templates/markdown.test.js site/templates/breach-detail.test.js"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
