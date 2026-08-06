@@ -2,27 +2,207 @@
 // Ingestion orchestrator. Pipeline stages (spec section 4):
 //   fetch -> normalize -> entity resolve -> dedupe -> validate -> score -> write
 //
-// Phase 0 policy: ingestion is NOT implemented yet. This orchestrator exists so
-// the pipeline shape, source registry, and loud-failure behavior are fixed from
-// day one. Running it exits non-zero — it must never pretend to have ingested.
+// Usage:
+//   node packages/ingest/run.js --source hhs_ocr [--remote] [--dry-run]
+//   node packages/ingest/run.js --source hhs_ocr --from-file export.csv
+//
+// --from-file exists so the pipeline can be exercised against a saved export
+// without touching the government portal. --dry-run does everything except
+// write to D1.
+//
+// Failure policy (spec sections 4 and 11): any source that cannot be retrieved
+// or parsed FAILS THE RUN. A partial ingest that silently drops a source would
+// publish an incomplete record set as though it were the complete government
+// record, which is the worst outcome this project can produce.
 
-const SOURCES = [
-  { id: 'hhs_ocr', module: './sources/hhs-ocr.js', phase: 1 },
-  { id: 'maine_ag', module: './sources/maine-ag.js', phase: 2 },
-  { id: 'ca_ag', module: './sources/ca-ag.js', phase: 2 },
-  { id: 'wa_ag', module: './sources/wa-ag.js', phase: 2 },
-  { id: 'tx_ag', module: './sources/tx-ag.js', phase: 3 },
-  { id: 'sec_8k', module: './sources/sec-8k.js', phase: 3 },
-  { id: 'courtlistener', module: './sources/courtlistener.js', phase: 4 },
-];
+const fs = require('fs');
+const path = require('path');
+const { execFileSync } = require('child_process');
 
-function main() {
-  console.error('ingest: not implemented (Phase 0 scaffold). Sources registered:');
-  for (const s of SOURCES) console.error(`  ${s.id.padEnd(14)} ${s.module} (Phase ${s.phase})`);
-  console.error('A source that 404s at run time must fail the run loudly, never skip silently.');
-  process.exit(1);
+const hhs = require('./sources/hhs-ocr');
+const { fetchBreachCsv } = require('./sources/hhs-ocr-fetch');
+const { validate, logReject } = require('./validate');
+const { assignSlugs } = require('./slug');
+const { buildStatements, batch } = require('./d1-writer');
+const { score } = require('../severity/score');
+
+const ROOT = path.join(__dirname, '..', '..');
+const DB = 'breachledger';
+
+function arg(name, fallback = null) {
+  const i = process.argv.indexOf(`--${name}`);
+  if (i === -1) return fallback;
+  const next = process.argv[i + 1];
+  return next && !next.startsWith('--') ? next : true;
 }
 
-main();
+function wrangler(args) {
+  return execFileSync('npx', ['wrangler', ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    maxBuffer: 256 * 1024 * 1024,
+    stdio: ['inherit', 'pipe', 'inherit'],
+  });
+}
 
-module.exports = { SOURCES };
+function d1Query(sql, remote) {
+  const out = wrangler(['d1', 'execute', DB, remote ? '--remote' : '--local', '--json', '--command', sql]);
+  const start = out.indexOf('[');
+  if (start === -1) throw new Error(`unexpected wrangler output: ${out.slice(0, 400)}`);
+  const parsed = JSON.parse(out.slice(start));
+  return parsed[0]?.results || [];
+}
+
+function d1File(sql, remote) {
+  const tmp = path.join(ROOT, '.wrangler', `ingest-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
+  fs.mkdirSync(path.dirname(tmp), { recursive: true });
+  fs.writeFileSync(tmp, sql);
+  try {
+    wrangler(['d1', 'execute', DB, remote ? '--remote' : '--local', '--file', tmp]);
+  } finally {
+    fs.unlinkSync(tmp);
+  }
+}
+
+async function main() {
+  const sourceId = arg('source', 'hhs_ocr');
+  const remote = Boolean(arg('remote', false));
+  const dryRun = Boolean(arg('dry-run', false));
+  const fromFile = arg('from-file', null);
+
+  if (sourceId !== 'hhs_ocr') {
+    throw new Error(`ingest: source '${sourceId}' is not implemented yet (Phase 1 covers hhs_ocr only)`);
+  }
+
+  // --- fetch -------------------------------------------------------------
+  let csvText;
+  let retrievedAt;
+  let checksum;
+  let sourceUrl = hhs.PORTAL_URL;
+
+  if (fromFile) {
+    csvText = fs.readFileSync(fromFile, 'utf8');
+    retrievedAt = new Date().toISOString();
+    checksum = require('crypto').createHash('sha256').update(csvText).digest('hex');
+    console.error(`ingest: reading ${fromFile} (${csvText.length} bytes) instead of fetching`);
+  } else {
+    console.error(`ingest: driving the HHS OCR portal export sequence...`);
+    const res = await fetchBreachCsv();
+    csvText = res.csv;
+    retrievedAt = res.steps.retrieved_at;
+    checksum = res.steps.checksum;
+    console.error(
+      `ingest: retrieved ${res.steps.bytes} bytes (grid=${res.steps.gridCommand}, csv=${res.steps.csvCommand})`
+    );
+  }
+
+  // --- parse -------------------------------------------------------------
+  const { headers, rows } = hhs.parse(csvText);
+  console.error(`ingest: parsed ${rows.length} rows, ${headers.length} columns`);
+  if (!rows.length) throw new Error('ingest: export contained zero data rows — refusing to proceed');
+
+  // --- normalize + entity resolve ---------------------------------------
+  const unknownVectorTokens = new Set();
+  const byId = new Map();
+  for (const row of rows) {
+    const { record, source } = hhs.normalizeRow(row, {
+      retrievedAt,
+      checksum,
+      sourceUrl,
+      unknownVectorTokens,
+    });
+    // --- dedupe: identical id means the same entity reported the same day.
+    const existing = byId.get(record.id);
+    if (existing) {
+      // Union the record: take MAX of records_affected, keep both sources.
+      existing.records_affected = Math.max(existing.records_affected || 0, record.records_affected || 0) || null;
+      existing.sources.push(source);
+      continue;
+    }
+    record.sources = [source];
+    byId.set(record.id, record);
+  }
+  if (unknownVectorTokens.size) {
+    console.error(
+      `ingest: WARNING unrecognized "Type of Breach" values (vocabulary drift): ${[...unknownVectorTokens].join(' | ')}`
+    );
+  }
+
+  // --- validate ----------------------------------------------------------
+  const candidates = [...byId.values()];
+  const valid = [];
+  let rejected = 0;
+  for (const rec of candidates) {
+    const checkable = { ...rec, data_classes: JSON.parse(rec.data_classes) };
+    const result = validate(checkable);
+    if (result.ok) valid.push(rec);
+    else {
+      rejected++;
+      logReject(checkable, result.reasons);
+    }
+  }
+  console.error(`ingest: ${valid.length} valid, ${rejected} rejected (see docs/ingest-rejects.log)`);
+
+  // --- score -------------------------------------------------------------
+  for (const rec of valid) {
+    const s = score({
+      data_classes: JSON.parse(rec.data_classes),
+      records_affected: rec.records_affected,
+      remediation_offered: rec.remediation_offered ? JSON.parse(rec.remediation_offered) : null,
+      discovery_date: rec.discovery_date,
+      notification_date: rec.notification_date,
+    });
+    rec.severity_score = s.score;
+    rec.severity_rubric_version = s.rubric_version;
+  }
+
+  // --- slugs -------------------------------------------------------------
+  assignSlugs(valid, { stableKey: (r) => r.id });
+
+  // --- write -------------------------------------------------------------
+  const existingRows = dryRun && !fromFile ? [] : d1Query('SELECT * FROM breaches', remote);
+  const existingBreaches = new Map(existingRows.map((r) => [r.id, r]));
+  const existingSources = new Set(
+    d1Query('SELECT breach_id, source_type, source_url FROM sources', remote).map(
+      (s) => `${s.breach_id}|${s.source_type}|${s.source_url}`
+    )
+  );
+
+  const now = new Date().toISOString();
+  for (const rec of valid) {
+    for (const src of rec.sources) {
+      src.id = require('crypto')
+        .createHash('sha256')
+        .update(`${rec.id}|${src.source_type}|${src.source_url}`)
+        .digest('hex')
+        .slice(0, 32);
+    }
+    delete rec._hhs; // provenance is preserved in sources.raw_payload
+  }
+
+  const { statements, stats } = buildStatements(valid, existingBreaches, existingSources, now);
+  console.error(
+    `ingest: ${stats.inserted} inserted, ${stats.updated} updated, ${stats.unchanged} unchanged, ${stats.sourcesAdded} source rows added`
+  );
+
+  if (dryRun) {
+    console.error('ingest: --dry-run, no writes performed');
+    return;
+  }
+  if (!statements.length) {
+    console.error('ingest: nothing to write; database already matches the source');
+    return;
+  }
+
+  const files = batch(statements, 400);
+  files.forEach((sql, i) => {
+    console.error(`ingest: applying batch ${i + 1}/${files.length}`);
+    d1File(sql, remote);
+  });
+  console.error('ingest: complete');
+}
+
+main().catch((err) => {
+  console.error(`ingest FAILED: ${err.message}`);
+  process.exit(1);
+});

@@ -1,0 +1,96 @@
+name: Ingest HHS OCR breach records
+
+# Runs the Phase 1 ingest against the live HHS Office for Civil Rights breach
+# portal, writes to the remote D1 database, exports the build input, and
+# deploys the refreshed site.
+#
+# Manual dispatch plus a daily 06:00 UTC schedule (spec section 1). The daily
+# run is what keeps the record current; the portal publishes new breaches
+# continuously.
+#
+# Requires the same secrets as deploy.yml:
+#   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Parse and score, but do not write to D1'
+        type: boolean
+        default: false
+  schedule:
+    - cron: '0 6 * * *'
+
+concurrency:
+  group: ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "${{ secrets.CLOUDFLARE_API_TOKEN }}" ] || [ -z "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]; then
+            echo "::error::CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID must be set. Nothing was ingested."
+            exit 1
+          fi
+
+      - run: npm test
+
+      # The portal is a stateful JSF app with no static CSV URL, so this step
+      # drives its form sequence. It fails loudly on any deviation rather than
+      # publishing a partial record set as if it were complete.
+      - name: Ingest HHS OCR breach portal
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          node packages/ingest/run.js --source hhs_ocr --remote \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} 2>&1 | tee /tmp/ingest.log
+
+      - name: Publish ingest summary
+        if: always()
+        run: |
+          {
+            echo '## Ingest run'
+            echo '```'
+            tail -40 /tmp/ingest.log 2>/dev/null || echo 'no log produced'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload rejected records for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ingest-rejects
+          path: docs/ingest-rejects.log
+          if-no-files-found: ignore
+
+      - name: Export build input from D1
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/export-data.js --remote
+
+      - name: Build
+        if: github.event.inputs.dry_run != 'true'
+        run: npm run build
+
+      - name: Deploy to Pages
+        if: github.event.inputs.dry_run != 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name breachledger --branch ${{ vars.PAGES_BRANCH || 'main' }}

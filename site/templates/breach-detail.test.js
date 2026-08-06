@@ -65,10 +65,13 @@ test('renders all nine required blocks in spec order', () => {
 
 test('severity is shown with its component breakdown and rubric version, never bare', () => {
   const html = renderOne();
-  // ssn 30 + medical 22 = 52; 250k -> 9; no remediation -> 10; 71-day lag -> 3
-  assert.match(html, /74 out of 100/);
-  assert.match(html, /rubric v1\.0/);
-  assert.match(html, /sev-74/);
+  // ssn 30 + medical 22 = 52; 250k -> 9; 71-day lag -> 3.
+  // Remediation contributes 0, not 10: HHS does not report it, and rubric v1.1
+  // does not penalize an entity for a gap in the government record.
+  assert.match(html, /64 out of 100/);
+  assert.match(html, /rubric v1\.1/);
+  assert.match(html, /sev-64/);
+  assert.match(html, /not reported by this source/);
   assert.match(html, /Data classes exposed/);
   assert.match(html, /Notification lag/);
   assert.match(html, /71 days elapsed/);

@@ -54,9 +54,19 @@ function scaleModifier(recordsAffected) {
 }
 
 function remediationGapModifier(remediationOffered) {
-  // remediationOffered: parsed JSON {type, provider, months, enrollment_deadline} or null
-  if (!remediationOffered || !remediationOffered.type || remediationOffered.type === 'none') {
-    return { points: 10, band: 'no monitoring offered' };
+  // remediationOffered: parsed JSON {type, provider, months, enrollment_deadline} or null.
+  //
+  // null means the source does not cover remediation at all (the HHS breach
+  // portal never does). Scoring that as "none offered" would penalize an entity
+  // for a gap in the government record rather than for its own conduct, so it
+  // scores 0 and is flagged — the same treatment unknown record counts and
+  // unknown dates already receive. An affirmative {type:'none'} is different:
+  // there the source is telling us nothing was offered, and that scores 10.
+  if (remediationOffered == null) {
+    return { points: rubric.remediation_gap_modifier.unreported_points, band: 'not reported by this source', unknown: true };
+  }
+  if (!remediationOffered.type || remediationOffered.type === 'none') {
+    return { points: 10, band: 'source reports none offered' };
   }
   const months = remediationOffered.months;
   if (months == null || typeof months !== 'number' || !Number.isFinite(months) || months < 0) {

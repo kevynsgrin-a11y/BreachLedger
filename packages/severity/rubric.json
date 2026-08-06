@@ -1,5 +1,13 @@
 {
-  "version": "1.0",
+  "version": "1.1",
+  "changelog": [
+    {
+      "version": "1.1",
+      "date": "2026-08-06",
+      "change": "The remediation gap component now distinguishes a source that affirmatively reports no remediation was offered (10 points) from a source that does not cover remediation at all (0 points, flagged 'not reported by this source'). Under v1.0 both scored 10, which penalized an entity for a gap in the government record rather than for its own conduct. This matters at scale: the HHS breach portal never reports remediation, so every record drawn from it carried an unearned 10 points. Scores computed under v1.0 record that version.",
+      "affects": "Records whose sources are silent on remediation score 10 points lower than under v1.0."
+    }
+  ],
   "formula": "score = min(100, data_class_subtotal + scale_mod + remediation_gap_mod + notification_lag_mod)",
   "published_at": "/severity",
   "data_class_subtotal": {
@@ -35,14 +43,16 @@
     "unknown_records_points": 0
   },
   "remediation_gap_modifier": {
-    "description": "Scores the gap between what was exposed and what the entity offered. The spec defines: none offered = 10, under 12 months = 5, 24 months or more = 0. The 12-23 month band, unspecified in the source spec, is set to 2 in rubric v1.0.",
+    "description": "Scores the gap between what was exposed and what the entity offered. Affirmatively no remediation = 10, under 12 months = 5, 24 months or more = 0. The 12-23 month band, unspecified in the source spec, is set to 2. A source that does not report remediation at all scores 0 and is flagged: that is a gap in the government record, not conduct by the entity.",
     "max": 10,
     "bands": [
-      { "condition": "no_monitoring_offered", "points": 10 },
-      { "condition": "months < 12",           "points": 5 },
-      { "condition": "12 <= months < 24",     "points": 2 },
-      { "condition": "months >= 24",          "points": 0 }
-    ]
+      { "condition": "source reports none offered", "points": 10 },
+      { "condition": "months < 12",                 "points": 5 },
+      { "condition": "12 <= months < 24",           "points": 2 },
+      { "condition": "months >= 24",                "points": 0 },
+      { "condition": "not reported by this source", "points": 0 }
+    ],
+    "unreported_points": 0
   },
   "notification_lag_modifier": {
     "description": "Days between discovery_date and notification_date. Unknown dates score 0 and are flagged in the breakdown.",

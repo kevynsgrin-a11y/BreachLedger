@@ -41,9 +41,30 @@ jobs:
           fi
 
       - run: npm test
+
+      # site/data is generated, not committed: D1 is the canonical store. The
+      # export MUST run before the build, or this would publish an empty site
+      # and delete every breach page currently live.
+      - name: Export build input from D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node scripts/export-data.js --remote
+
       - run: npm run build
         env:
           SITE_ORIGIN: ${{ vars.SITE_ORIGIN || 'https://breachbook.org' }}
+
+      # Guard against publishing a catastrophically smaller site than the one
+      # already live, which is what a failed or partial export looks like.
+      - name: Sanity-check the built output
+        run: |
+          pages=$(find dist -name index.html | wc -l)
+          echo "built $pages pages"
+          if [ "$pages" -lt 5 ]; then
+            echo "::error::only $pages pages built; refusing to deploy a truncated site"
+            exit 1
+          fi
       # --branch must equal the Pages project's Production branch, or the
       # upload is published as a preview and the custom domain is unaffected.
       - name: Deploy to Pages

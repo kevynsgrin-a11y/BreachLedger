@@ -6,7 +6,7 @@ test('full-stack breach: subtotal caps at 70, modifiers add, total caps at 100',
   const r = score({
     data_classes: ['ssn', 'biometric', 'medical', 'financial_account'], // 30+30+22+25 = 107 -> cap 70
     records_affected: 25_000_000, // 15
-    remediation_offered: null, // 10
+    remediation_offered: { type: 'none' }, // 10, affirmatively none offered
     discovery_date: '2025-01-01',
     notification_date: '2025-06-01', // 151 days -> 5
   });
@@ -16,7 +16,7 @@ test('full-stack breach: subtotal caps at 70, modifiers add, total caps at 100',
   assert.equal(r.breakdown.remediation_gap_modifier.points, 10);
   assert.equal(r.breakdown.notification_lag_modifier.points, 5);
   assert.equal(r.score, 100);
-  assert.equal(r.rubric_version, '1.0');
+  assert.equal(r.rubric_version, '1.1');
 });
 
 test('minor breach: name+email, small, prompt notice, 24mo monitoring', () => {
@@ -84,11 +84,25 @@ test('negative monitoring months treated as unknown duration (5 points)', () => 
 
 test('remediation gap: unknown duration scores 5, 12-23 months scores 2', () => {
   const gap = (rem) => score({ data_classes: [], remediation_offered: rem }).breakdown.remediation_gap_modifier.points;
-  assert.equal(gap(null), 10);
+  assert.equal(gap(null), 0); // v1.1: source silent -> not assessable
   assert.equal(gap({ type: 'none' }), 10);
   assert.equal(gap({ type: 'credit_monitoring' }), 5);
   assert.equal(gap({ type: 'credit_monitoring', months: 11 }), 5);
   assert.equal(gap({ type: 'credit_monitoring', months: 12 }), 2);
   assert.equal(gap({ type: 'credit_monitoring', months: 23 }), 2);
   assert.equal(gap({ type: 'credit_monitoring', months: 24 }), 0);
+});
+
+test('v1.1: unreported remediation is not scored as none offered', () => {
+  const silent = score({ data_classes: ['medical'], remediation_offered: null });
+  assert.equal(silent.breakdown.remediation_gap_modifier.points, 0);
+  assert.equal(silent.breakdown.remediation_gap_modifier.band, 'not reported by this source');
+  assert.equal(silent.breakdown.remediation_gap_modifier.unknown, true);
+
+  const none = score({ data_classes: ['medical'], remediation_offered: { type: 'none' } });
+  assert.equal(none.breakdown.remediation_gap_modifier.points, 10);
+  assert.equal(none.breakdown.remediation_gap_modifier.band, 'source reports none offered');
+
+  // The difference is exactly the 10 points that HHS-only records used to carry.
+  assert.equal(none.score - silent.score, 10);
 });
