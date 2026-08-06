@@ -150,3 +150,39 @@ test('archive rows with blank vocabulary fields degrade to unknown, not to a cra
   assert.equal(record.records_affected, null);
   assert.deepEqual(record._hhs.locations, []);
 });
+
+const LIVE_HEADER =
+  '"javax.faces.component.UIPanel@3d52fe96","State","Covered Entity Type","Individuals Affected",' +
+  '"Breach Submission Date","Type of Breach","Location of Breached Information",' +
+  '"javax.faces.component.UIPanel@23bb75f5","Web Description"';
+
+test('repairs the serialized-component headers the live export emits', () => {
+  const csv = LIVE_HEADER + '\n"Acme Clinic","TX","Healthcare Provider","1200","03/14/2025","Theft","Paper/Films","No",""\n';
+  const { headers, rows } = hhs.parse(csv);
+  assert.equal(headers[0], 'Name of Covered Entity');
+  assert.equal(headers[7], 'Business Associate Present');
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0]['Name of Covered Entity'], 'Acme Clinic');
+  assert.equal(rows[0]['Business Associate Present'], 'No');
+});
+
+test('repair leaves data rows untouched, including quoted commas', () => {
+  const csv = LIVE_HEADER + '\n"Smith, Jones and Associates, P.C.","CA","Health Plan","500","01/02/2024","Loss","Email","Yes","OCR narrative, with comma."\n';
+  const { rows } = hhs.parse(csv);
+  assert.equal(rows[0]['Name of Covered Entity'], 'Smith, Jones and Associates, P.C.');
+  assert.equal(rows[0]['Web Description'], 'OCR narrative, with comma.');
+});
+
+test('repair refuses to act when the surrounding layout differs', () => {
+  // A genuine upstream rename must still fail loudly rather than be papered over.
+  const shifted = LIVE_HEADER.replace('"State"', '"Entity State"');
+  const csv = shifted + '\n"Acme","TX","Healthcare Provider","1","03/14/2025","Theft","Email","No",""\n';
+  assert.throws(() => hhs.parse(csv), /CSV schema changed/);
+});
+
+test('repair is a no-op on a clean export', () => {
+  const clean = hhs.ALL_COLUMNS.join(',');
+  const csv = clean + '\nAcme,TX,Healthcare Provider,1,03/14/2025,Theft,Email,No,\n';
+  const { headers } = hhs.parse(csv);
+  assert.deepEqual(headers, hhs.ALL_COLUMNS);
+});

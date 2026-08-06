@@ -162,6 +162,55 @@ function stableId(entityNormalized, notificationDate) {
   return [h.slice(0, 8), h.slice(8, 12), h.slice(12, 16), h.slice(16, 20), h.slice(20, 32)].join('-');
 }
 
+// A JSF component serialized by toString(), e.g.
+// "javax.faces.component.UIPanel@3d52fe96". PrimeFaces' DataExporter emits
+// this when a column's header is a composite facet (one holding sort or filter
+// widgets) rather than a plain headerText attribute — it serializes the
+// component instead of extracting its text.
+const JSF_COMPONENT_HEADER = /^(?:javax|jakarta)\.faces\.component\.[A-Za-z.]+@[0-9a-f]+$/;
+
+/**
+ * Repair the header row of a live export.
+ *
+ * Columns 1 ("Name of Covered Entity") and 8 ("Business Associate Present")
+ * arrive as serialized component objects. Their positions are stable and the
+ * full column layout is documented, so the names can be restored — but only
+ * under a strict guard: every other header must already match the expected
+ * name at its expected index. If the layout differs in any way, this returns
+ * the text untouched so the parser's own schema check fails loudly rather than
+ * this function papering over a genuine upstream change.
+ */
+function repairHeaderRow(text) {
+  const s = String(text);
+  const nl = s.indexOf('\n');
+  if (nl === -1) return s;
+  const headerLine = s.slice(0, nl).replace(/\r$/, '');
+  const rest = s.slice(nl + 1);
+
+  const { parseRows } = require('../csv');
+  let headers;
+  try {
+    headers = parseRows(headerLine)[0];
+  } catch {
+    return s;
+  }
+  if (!headers || headers.length !== ALL_COLUMNS.length) return s;
+
+  const broken = [];
+  for (let i = 0; i < headers.length; i++) {
+    const got = headers[i].trim();
+    if (JSF_COMPONENT_HEADER.test(got)) { broken.push(i); continue; }
+    // Any non-broken header that does not match the documented layout means
+    // this is not the known defect — leave it alone.
+    if (got !== ALL_COLUMNS[i]) return s;
+  }
+  if (!broken.length) return s;
+
+  const repaired = headers.map((h, i) => (broken.includes(i) ? ALL_COLUMNS[i] : h.trim()));
+  const quoted = repaired.map((h) => `"${h.replace(/"/g, '""')}"`).join(',');
+  return `${quoted}\n${rest}`;
+}
+
 function parseCount(value) {
   const t = String(value == null ? '' : value).trim().replace(/,/g, '');
   if (!t) return null;
@@ -256,5 +305,6 @@ module.exports = {
   mapVector,
   deriveDataClasses,
   stableId,
-  parse: (text) => parseCsv(text, { required: REQUIRED_COLUMNS }),
+  repairHeaderRow,
+  parse: (text) => parseCsv(repairHeaderRow(text), { required: REQUIRED_COLUMNS }),
 };

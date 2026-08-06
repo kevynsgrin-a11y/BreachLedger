@@ -92,7 +92,8 @@ async function main() {
     retrievedAt = res.steps.retrieved_at;
     checksum = res.steps.checksum;
     console.error(
-      `ingest: retrieved ${res.steps.bytes} bytes (grid=${res.steps.gridCommand}, csv=${res.steps.csvCommand})`
+      `ingest: retrieved ${res.steps.bytes} bytes via ${res.steps.path} path, ` +
+        `${res.steps.encoding} encoding, command ${res.steps.csvCommand}`
     );
   }
 
