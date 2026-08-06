@@ -8,17 +8,16 @@ name = "breachledger"
 compatibility_date = "2026-07-01"
 pages_build_output_dir = "dist"
 
-# Canonical store. database_id is a placeholder until `wrangler d1 create
-# breachledger` is run against the production account; local development
-# (`--local`) does not need a real id.
+# Canonical store. Provisioned 2026-08-06; this is the live production
+# database id. Local development (`--local`) ignores it and uses .wrangler/state.
 [[d1_databases]]
 binding = "DB"
 database_name = "breachledger"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "13473ea8-386a-45f1-a941-e4f1c7b795ec"
 migrations_dir = "packages/schema/migrations"
 
 # Hot-path reads that must not trigger a rebuild: open-settlement countdowns,
-# "breaches added this week". Placeholder ids until provisioned.
+# "breaches added this week". Provisioned 2026-08-06.
 [[kv_namespaces]]
 binding = "HOT"
-id = "00000000000000000000000000000000"
+id = "27fd610a89594889984b0f1985fa7539"

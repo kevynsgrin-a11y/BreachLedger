@@ -70,8 +70,11 @@ prints a success message and a `*.pages.dev` URL — but publishes it as a *prev
 continues serving whatever was there before. This failure is silent; check the deploy output says the
 production URL, not a hashed preview subdomain.
 
-The custom domain is attached in the Cloudflare dashboard (Pages > breachledger > Custom domains). Commit
-the patched wrangler.toml ids after the first provision.
+The custom domain is attached in the Cloudflare dashboard (Pages > breachledger > Custom domains).
+
+**Provisioning status:** completed 2026-08-06. D1 and KV exist, the real resource ids are committed in the
+four wrangler.toml files, and the remote database is migrated and seeded (data_classes 13, state_rights 51,
+remediation_modules 13). `npm run provision` is idempotent and safe to re-run, but is no longer required.
 
 Continuous deploys: `.github/workflows/deploy.yml` publishes on every push once the
 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets and the `SITE_ORIGIN` repository variable are set.

@@ -9,8 +9,8 @@ crons = ["0 6 * * *", "0 * * * *"]
 [[d1_databases]]
 binding = "DB"
 database_name = "breachledger"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "13473ea8-386a-45f1-a941-e4f1c7b795ec"
 
 [[kv_namespaces]]
 binding = "HOT"
-id = "00000000000000000000000000000000"
+id = "27fd610a89594889984b0f1985fa7539"
