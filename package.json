@@ -2,7 +2,7 @@
   "name": "breachledger",
   "version": "1.0.0",
   "private": true,
-  "description": "BreachBook (breachbook.org) — a structured public record of disclosed U.S. data breaches, with a remediation engine and litigation tracking. Every published fact traces to a citable government or court source. The package/infrastructure name remains 'breachledger' from the original build.",
+  "description": "BreachBook (breachbook.org) \u2014 a structured public record of disclosed U.S. data breaches, with a remediation engine and litigation tracking. Every published fact traces to a citable government or court source. The package/infrastructure name remains 'breachledger' from the original build.",
   "type": "commonjs",
   "workspaces": [
     "packages/*",
@@ -19,7 +19,7 @@
     "provision": "node scripts/provision.js",
     "deploy": "npm test && npm run build && wrangler pages deploy dist --project-name breachledger --branch \"${PAGES_BRANCH:-main}\" --commit-dirty=true",
     "deploy:preview": "npm run build && wrangler pages deploy dist --project-name breachledger --branch preview --commit-dirty=true",
-    "test": "node --test packages/severity/score.test.js packages/ingest/entity-resolve.test.js packages/ingest/csv.test.js packages/ingest/slug.test.js site/templates/markdown.test.js site/templates/breach-detail.test.js"
+    "test": "node --test packages/severity/score.test.js packages/ingest/entity-resolve.test.js packages/ingest/csv.test.js packages/ingest/slug.test.js packages/ingest/d1-writer.test.js packages/ingest/sources/hhs-jsf.test.js packages/ingest/sources/hhs-ocr.test.js packages/ingest/sources/hhs-ocr-fetch.test.js site/templates/markdown.test.js site/templates/breach-detail.test.js"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

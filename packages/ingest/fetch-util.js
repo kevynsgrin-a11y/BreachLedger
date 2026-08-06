@@ -25,12 +25,20 @@ async function politeFetch(url, options = {}) {
   nextSlotAt.set(host, slot + MIN_INTERVAL_MS);
   if (slot > now) await new Promise((r) => setTimeout(r, slot - now));
 
-  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...fetchOptions } = options;
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, jar, raw, ...fetchOptions } = options;
+  const headers = { 'User-Agent': USER_AGENT, ...(fetchOptions.headers || {}) };
+  // Session-bound sources (the HHS OCR portal is a stateful JSF app) need the
+  // JSESSIONID carried across the request sequence.
+  if (jar) {
+    const cookie = jar.header();
+    if (cookie) headers.Cookie = cookie;
+  }
   const res = await fetch(url, {
     ...fetchOptions,
     signal: fetchOptions.signal || AbortSignal.timeout(timeoutMs),
-    headers: { 'User-Agent': USER_AGENT, ...(fetchOptions.headers || {}) },
+    headers,
   });
+  if (jar) jar.absorb(res);
   if (!res.ok) {
     // Fail loudly on rotated/removed endpoints — never skip a source silently.
     throw new Error(`source fetch failed: ${res.status} ${res.statusText} for ${url}`);

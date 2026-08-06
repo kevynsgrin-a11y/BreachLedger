@@ -9,11 +9,10 @@ const path = require('path');
 
 const SEED_DIR = __dirname;
 
-function sq(v) {
-  if (v === null || v === undefined) return 'NULL';
-  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : 'NULL';
-  return `'${String(v).replace(/'/g, "''")}'`;
-}
+// Shared, audited escaping (SQLite doubles single quotes; backslash is not an
+// escape character). Kept in one place so the seed loader and the ingest writer
+// cannot drift apart on a security-critical function.
+const { sqlLiteral: sq } = require('../sql');
 
 function readJson(p) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
