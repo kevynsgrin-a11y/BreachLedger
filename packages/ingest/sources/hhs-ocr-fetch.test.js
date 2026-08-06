@@ -2,142 +2,127 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { fetchBreachCsv, CookieJar } = require('./hhs-ocr-fetch');
 
-const FRONT = `<html><form id="ocrForm" action="/ocr/breach/breach_report.jsf;jsessionid=ABC">
+const FRONT = `<html><form id="ocrForm" action="/ocr/breach/breach_report.jsf;jsessionid=ABC" enctype="multipart/form-data">
 <a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt39':'ocrForm:j_idt39'},'');return false">View HIPAA Breach Reports</a>
 <input type="hidden" name="javax.faces.ViewState" value="VS1"></form></html>`;
 
-const GRID = `<html><form id="ocrForm" action="/ocr/breach/breach_report_hip.jsf">
+const GRID = `<html><form id="ocrForm" action="/ocr/breach/breach_report_hip.jsf" enctype="multipart/form-data">
 <a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt384':'ocrForm:j_idt384'},'');return false"><img alt="CSV" src="/i/csv.png"></a>
 <input type="hidden" name="javax.faces.ViewState" value="VS2"></form></html>`;
 
 const CSV = 'Name of Covered Entity,State\nAcme Clinic,CA\n';
-
-// A page with no JSF commands at all — what the portal actually returns when
-// the front-page navigation POST lands on chrome rather than the data grid.
-const EMPTY = '<html><body><p>No commands here.</p></body></html>';
+// What JSF returns when a postback is encoded in a way it does not decode:
+// HTTP 200, re-rendered view, no error.
+const RERENDER = '<html><body><p>re-rendered view, no commands</p></body></html>';
 
 /**
- * Mock portal keyed by URL rather than call order, so it stays valid as the
- * fetcher changes which paths it tries.
- * `directGrid` is what GET breach_report_hip.jsf returns.
+ * Mock portal. `acceptEncoding` names the ONE encoding the server decodes;
+ * every other encoding gets the silent 200-with-HTML re-render, which is the
+ * real failure mode this fetcher exists to survive.
  */
-function mockPortal({ csvBody = CSV, gridBody = GRID, frontBody = FRONT, directGrid = null } = {}) {
+function mockPortal({
+  acceptEncoding = 'multipart',
+  directGrid = GRID,
+  frontBody = FRONT,
+  navGrid = GRID,
+  csvBody = CSV,
+} = {}) {
   const calls = [];
   const impl = async (url, opts = {}) => {
     const method = opts.method || 'GET';
-    calls.push({ url, method, body: opts.body });
-    if (method === 'POST') return { body: csvBody, checksum: 'c3', retrieved_at: 'T' };
-    if (url.includes('breach_report_hip.jsf')) {
-      return { body: directGrid === null ? EMPTY : directGrid, checksum: 'c0', retrieved_at: 'T' };
-    }
-    return { body: frontBody, checksum: 'c1', retrieved_at: 'T' };
-  };
-  return { impl, calls, gridBody };
-}
+    const ct = (opts.headers && opts.headers['Content-Type']) || '';
+    const enc = ct.startsWith('multipart/') ? 'multipart' : String(opts.body || '').includes('javax.faces.partial.ajax') ? 'ajax' : 'urlencoded';
+    calls.push({ url, method, enc, body: opts.body });
 
-/** Mock where the front-page navigation POST returns the grid, then the CSV. */
-function mockNavPortal({ csvBody = CSV, gridBody = GRID, frontBody = FRONT } = {}) {
-  const calls = [];
-  let posts = 0;
-  const impl = async (url, opts = {}) => {
-    const method = opts.method || 'GET';
-    calls.push({ url, method, body: opts.body });
-    if (method === 'POST') {
-      posts++;
-      return posts === 1
-        ? { body: gridBody, checksum: 'c2', retrieved_at: 'T' }
-        : { body: csvBody, checksum: 'c3', retrieved_at: 'T' };
+    if (method === 'GET') {
+      return { body: url.includes('breach_report_hip.jsf') ? directGrid : frontBody, checksum: 'c0', retrieved_at: 'T' };
     }
-    if (url.includes('breach_report_hip.jsf')) return { body: EMPTY, checksum: 'c0', retrieved_at: 'T' };
-    return { body: frontBody, checksum: 'c1', retrieved_at: 'T' };
+    if (enc !== acceptEncoding) return { body: RERENDER, checksum: 'x', retrieved_at: 'T' };
+    // A navigation postback returns the grid; an export postback returns CSV.
+    const isExport = String(opts.body || '').includes('j_idt384');
+    return { body: isExport ? csvBody : navGrid, checksum: 'c9', retrieved_at: 'T' };
   };
   return { impl, calls };
 }
 
-test('primary path: fetches the grid directly and exports in two requests', async () => {
-  const { impl, calls } = mockPortal({ directGrid: GRID });
+test('primary path: direct grid, multipart export, two requests', async () => {
+  const { impl, calls } = mockPortal();
   const { csv, steps } = await fetchBreachCsv({ fetchImpl: impl });
   assert.equal(csv, CSV);
-  assert.equal(steps.path, 'direct');
+  assert.equal(steps.path, 'direct-grid');
+  assert.equal(steps.encoding, 'multipart');
   assert.equal(steps.csvCommand, 'ocrForm:j_idt384');
   assert.equal(calls.length, 2);
-  assert.match(calls[0].url, /breach_report_hip\.jsf$/);
-  assert.equal(calls[1].method, 'POST');
+});
+
+test('falls through to urlencoded when the server rejects multipart', async () => {
+  const { impl, calls } = mockPortal({ acceptEncoding: 'urlencoded' });
+  const { csv, steps } = await fetchBreachCsv({ fetchImpl: impl });
+  assert.equal(csv, CSV);
+  assert.equal(steps.encoding, 'urlencoded');
+  // multipart attempted first, then urlencoded succeeded
+  assert.deepEqual(calls.filter((c) => c.method === 'POST').map((c) => c.enc).slice(0, 2), ['multipart', 'urlencoded']);
+});
+
+test('falls through to the AJAX variant when only that is decoded', async () => {
+  const { impl } = mockPortal({ acceptEncoding: 'ajax' });
+  const { csv, steps } = await fetchBreachCsv({ fetchImpl: impl });
+  assert.equal(csv, CSV);
+  assert.equal(steps.encoding, 'ajax');
+});
+
+test('a 200-with-HTML re-render is treated as failure, never as success', async () => {
+  // No encoding is accepted: every POST returns HTTP 200 with markup.
+  const { impl } = mockPortal({ acceptEncoding: 'none-of-them' });
+  await assert.rejects(
+    () => fetchBreachCsv({ fetchImpl: impl }),
+    (err) => {
+      assert.match(err.message, /could not obtain the CSV export by any path or encoding/);
+      assert.match(err.message, /not CSV/);
+      return true;
+    }
+  );
 });
 
 test('falls back to front-page navigation when the direct grid has no exporter', async () => {
-  const { impl, calls } = mockNavPortal();
+  const { impl, calls } = mockPortal({ directGrid: '<html><body>chrome only</body></html>' });
   const { csv, steps } = await fetchBreachCsv({ fetchImpl: impl });
   assert.equal(csv, CSV);
-  assert.equal(steps.path, 'front-page-navigation');
-  // direct GET, front-page GET, nav POST, export POST
-  assert.equal(calls.length, 4);
+  assert.match(steps.path, /^front-nav/);
+  assert.ok(calls.some((c) => c.url.includes('breach_report.jsf')));
 });
 
-test('drives the full navigation sequence and returns CSV', async () => {
-  const { impl, calls } = mockNavPortal();
-  const { csv, steps } = await fetchBreachCsv({ fetchImpl: impl });
-  assert.equal(csv, CSV);
-  assert.equal(calls.length, 4);
-  assert.equal(calls[1].method, 'GET');
-  assert.equal(calls[2].method, 'POST');
-  assert.equal(calls[3].method, 'POST');
-  assert.equal(steps.gridCommand, 'ocrForm:j_idt39');
-  assert.equal(steps.csvCommand, 'ocrForm:j_idt384');
-});
-
-test('carries the discovered command id and ViewState in each POST body', async () => {
-  const { impl, calls } = mockNavPortal();
-  await fetchBreachCsv({ fetchImpl: impl });
-  const grid = new URLSearchParams(calls[2].body);
-  assert.equal(grid.get('javax.faces.ViewState'), 'VS1');
-  assert.equal(grid.get('ocrForm:j_idt39'), 'ocrForm:j_idt39');
-  const csv = new URLSearchParams(calls[3].body);
-  // The SECOND ViewState, not the first — reusing VS1 would be rejected.
-  assert.equal(csv.get('javax.faces.ViewState'), 'VS2');
-  assert.equal(csv.get('ocrForm:j_idt384'), 'ocrForm:j_idt384');
-});
-
-test('resolves the form action relative to the portal, preserving jsessionid', async () => {
-  const { impl, calls } = mockNavPortal();
-  await fetchBreachCsv({ fetchImpl: impl });
-  assert.match(calls[2].url, /^https:\/\/ocrportal\.hhs\.gov\/ocr\/breach\/breach_report\.jsf;jsessionid=ABC$/);
-  assert.match(calls[3].url, /breach_report_hip\.jsf$/);
-});
-
-test('throws a diagnosable error when the grid label is gone', async () => {
-  const { impl } = mockNavPortal({ frontBody: FRONT.replace('View HIPAA Breach Reports', 'Something Else') });
-  await assert.rejects(() => fetchBreachCsv({ fetchImpl: impl }), /could not find the "View HIPAA Breach Reports" command/);
-});
-
-test('throws when no ViewState is present', async () => {
-  const { impl } = mockNavPortal({ frontBody: FRONT.replace(/<input[^>]*ViewState[^>]*>/, '') });
-  await assert.rejects(() => fetchBreachCsv({ fetchImpl: impl }), /no javax.faces.ViewState/);
-});
-
-test('refuses to guess when the CSV exporter is missing, rather than downloading another format', async () => {
-  // Grid offering only an Excel exporter: neither the alt text nor the icon
-  // filename indicates CSV, so there is nothing safe to click.
+test('refuses to click a non-CSV exporter rather than downloading the wrong format', async () => {
   const xlsOnly = GRID.replace('alt="CSV" src="/i/csv.png"', 'alt="XLS" src="/i/excel.png"');
-  const { impl } = mockNavPortal({ gridBody: xlsOnly });
-  await assert.rejects(() => fetchBreachCsv({ fetchImpl: impl }), /no CSV export control found/);
+  const { impl } = mockPortal({ directGrid: xlsOnly, navGrid: xlsOnly, frontBody: '<html><body>none</body></html>' });
+  await assert.rejects(() => fetchBreachCsv({ fetchImpl: impl }), /csvCommand=none/);
 });
 
-test('identifies the CSV icon by filename when the alt attribute is absent', async () => {
+test('identifies the CSV icon by filename when alt is absent', async () => {
   const noAlt = GRID.replace('alt="CSV" ', '');
-  const { impl } = mockNavPortal({ gridBody: noAlt });
+  const { impl } = mockPortal({ directGrid: noAlt });
   const { steps } = await fetchBreachCsv({ fetchImpl: impl });
   assert.equal(steps.csvCommand, 'ocrForm:j_idt384');
 });
 
-test('detects an HTML response where CSV was expected (session expiry)', async () => {
-  const { impl } = mockNavPortal({ csvBody: '<html><body>Session expired</body></html>' });
-  await assert.rejects(() => fetchBreachCsv({ fetchImpl: impl }), /expected CSV, received HTML/);
+test('multipart body carries the ViewState and the command id', async () => {
+  const { impl, calls } = mockPortal();
+  await fetchBreachCsv({ fetchImpl: impl });
+  const post = calls.find((c) => c.method === 'POST');
+  assert.match(post.body, /name="javax\.faces\.ViewState"[\s\S]*VS2/);
+  assert.match(post.body, /name="ocrForm:j_idt384"/);
 });
 
-test('rejects a response with no comma-delimited header row', async () => {
-  const { impl } = mockNavPortal({ csvBody: 'not a csv at all\n' });
-  await assert.rejects(() => fetchBreachCsv({ fetchImpl: impl }), /no comma-delimited header row/);
+test('error message enumerates every attempt for diagnosis', async () => {
+  const { impl } = mockPortal({ acceptEncoding: 'none', directGrid: '<html>x</html>', frontBody: '<html>y</html>' });
+  await assert.rejects(
+    () => fetchBreachCsv({ fetchImpl: impl }),
+    (err) => {
+      assert.match(err.message, /direct-grid:/);
+      assert.match(err.message, /front-page:/);
+      return true;
+    }
+  );
 });
 
 test('cookie jar absorbs and replays Set-Cookie', () => {

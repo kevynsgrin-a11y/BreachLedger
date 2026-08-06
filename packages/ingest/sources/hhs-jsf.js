@@ -142,10 +142,76 @@ function exportDiagnostics(html) {
   return hits;
 }
 
+/** Field set for a JSF command POST: all hidden fields plus the command's id. */
+function buildCommandFields(hidden, commandId, formId = 'ocrForm') {
+  return { ...hidden, [formId]: formId, [commandId]: commandId };
+}
+
 /** Body for a JSF command POST: all hidden fields plus the command's own id. */
 function buildCommandBody(hidden, commandId, formId = 'ocrForm') {
-  const body = { ...hidden, [formId]: formId, [commandId]: commandId };
-  return new URLSearchParams(body).toString();
+  return new URLSearchParams(buildCommandFields(hidden, commandId, formId)).toString();
+}
+
+/**
+ * The same field set encoded as multipart/form-data.
+ *
+ * The only genuine capture of this portal's form declares
+ * enctype="multipart/form-data". That matters more than it looks: if Mojarra's
+ * multipart filter is installed and receives a urlencoded body, it does not
+ * decode the postback at all — JSF simply re-renders the view and returns
+ * HTTP 200 with HTML. So a wrong encoding never surfaces as an error status,
+ * only as a page that quietly isn't the CSV.
+ */
+function buildMultipartBody(hidden, commandId, formId = 'ocrForm') {
+  const fields = buildCommandFields(hidden, commandId, formId);
+  const boundary = '----BreachBookFormBoundary' + Buffer.from(String(Object.keys(fields).length)).toString('hex');
+  const parts = [];
+  for (const [name, value] of Object.entries(fields)) {
+    parts.push(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="${String(name).replace(/"/g, '%22')}"\r\n\r\n` +
+        `${value}\r\n`
+    );
+  }
+  parts.push(`--${boundary}--\r\n`);
+  return { body: parts.join(''), contentType: `multipart/form-data; boundary=${boundary}` };
+}
+
+/**
+ * AJAX (PrimeFaces partial) variant of the same postback. securelogic's live
+ * 2026 fetch hypothesised the exporter is wired this way; it costs one extra
+ * attempt to rule in or out.
+ */
+function buildAjaxBody(hidden, commandId, formId = 'ocrForm') {
+  const fields = {
+    ...buildCommandFields(hidden, commandId, formId),
+    'javax.faces.source': commandId,
+    'javax.faces.partial.event': 'click',
+    'javax.faces.partial.execute': '@all',
+    'javax.faces.partial.render': '@none',
+    'javax.faces.behavior.event': 'action',
+    'javax.faces.partial.ajax': 'true',
+  };
+  return new URLSearchParams(fields).toString();
+}
+
+/** Encodings to try, in order of evidential support. */
+function commandEncodings(hidden, commandId, formId = 'ocrForm') {
+  const multipart = buildMultipartBody(hidden, commandId, formId);
+  return [
+    { name: 'multipart', body: multipart.body, contentType: multipart.contentType },
+    { name: 'urlencoded', body: buildCommandBody(hidden, commandId, formId), contentType: 'application/x-www-form-urlencoded' },
+    { name: 'ajax', body: buildAjaxBody(hidden, commandId, formId), contentType: 'application/x-www-form-urlencoded' },
+  ];
+}
+
+/** True when a response body plausibly IS the CSV export. */
+function looksLikeCsv(body) {
+  const text = String(body || '');
+  if (!text.trim()) return false;
+  if (/^\s*</.test(text) || /<html/i.test(text.slice(0, 500))) return false;
+  const first = text.split('\n')[0] || '';
+  return first.includes(',');
 }
 
 /** A short, diagnosable excerpt of a page that failed discovery. */
@@ -155,6 +221,11 @@ function excerpt(html, chars = 400) {
 }
 
 module.exports = {
+  buildCommandFields,
+  buildMultipartBody,
+  buildAjaxBody,
+  commandEncodings,
+  looksLikeCsv,
   listCommandCandidates,
   exportDiagnostics,
   commandIdFrom,
