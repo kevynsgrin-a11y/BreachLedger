@@ -6,6 +6,7 @@ function render(ctx) {
   const content = `<article class="doc">${body}</article>`;
   return page({
     site,
+    assets: ctx.assets,
     route: '/sources',
     title: 'Sources and methodology',
     description: 'Every source this record is compiled from, its retrieval method, and when it was last verified.',

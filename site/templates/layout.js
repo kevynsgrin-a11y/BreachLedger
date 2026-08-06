@@ -4,7 +4,8 @@
 
 const { escapeHtml } = require('./markdown');
 
-function page({ site, title, description, content, route }) {
+function page({ site, title, description, content, route, assets = {} }) {
+  const stylesheet = assets['styles.css'] || 'styles.css';
   const fullTitle = route === '/' ? `${site.name} — ${site.tagline}` : `${title} — ${site.name}`;
   const url = `${site.origin}${route === '/' ? '/' : route + '/'}`;
   const indexable = route !== '/404';
@@ -18,6 +19,7 @@ function page({ site, title, description, content, route }) {
 <meta property="og:title" content="${escapeHtml(fullTitle)}">
 <meta property="og:description" content="${escapeHtml(description)}">
 <meta property="og:url" content="${url}">
+<meta property="og:locale" content="${site.language.replace('-', '_')}">
 <meta name="twitter:card" content="summary">`
     : '';
   return `<!doctype html>
@@ -28,7 +30,7 @@ function page({ site, title, description, content, route }) {
 <title>${escapeHtml(fullTitle)}</title>
 <meta name="description" content="${escapeHtml(description)}">${canonical}${social}
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/assets/styles.css">
+<link rel="stylesheet" href="/assets/${stylesheet}">
 </head>
 <body>
 <header class="site-header">
@@ -37,9 +39,9 @@ function page({ site, title, description, content, route }) {
     <p class="site-tagline">${escapeHtml(site.tagline)}. Every entry cites a government or court source.</p>
     <nav class="site-nav">
       <a href="/">Record</a>
-      <a href="/severity">Severity rubric</a>
-      <a href="/sources">Sources &amp; methodology</a>
-      <a href="/corrections">Corrections</a>
+      <a href="/severity/">Severity rubric</a>
+      <a href="/sources/">Sources &amp; methodology</a>
+      <a href="/corrections/">Corrections</a>
     </nav>
   </div>
 </header>
@@ -50,7 +52,7 @@ ${content}
   <div class="wrap">
     <p>${escapeHtml(site.name)} is a public record compiled from government and court disclosures. It is not a law firm,
     not a settlement administrator, and does not process or advise on claims. Nothing on this site is legal advice.</p>
-    <p><a href="/sources">How this record is compiled</a> · <a href="/corrections">Corrections policy</a></p>
+    <p><a href="/sources/">How this record is compiled</a> · <a href="/corrections/">Corrections policy</a></p>
   </div>
 </footer>
 </body>

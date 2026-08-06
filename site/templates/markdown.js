@@ -111,7 +111,9 @@ function renderMarkdown(md) {
         const trs = body
           .map((r) => `<tr>${r.map((c) => `<td>${inline(escapeHtml(c))}</td>`).join('')}</tr>`)
           .join('');
-        out.push(`<table>${th}<tbody>${trs}</tbody></table>`);
+        // Wrapped so a wide table scrolls within its own box instead of
+        // dragging the whole document into horizontal scroll on narrow screens.
+        out.push(`<div class="table-scroll"><table>${th}<tbody>${trs}</tbody></table></div>`);
       }
       continue;
     }

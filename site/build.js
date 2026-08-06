@@ -6,6 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..');
 const config = require(path.join(ROOT, 'ue.config.js'));
@@ -73,18 +74,34 @@ function publishableBreaches(breaches, sourcesByBreach) {
 }
 
 function main() {
+  // A placeholder origin would publish canonical and og:url tags pointing at a
+  // domain that does not serve this site. Fail rather than ship that.
+  const origin = config.site.origin;
+  if (!/^https:\/\//.test(origin) || /\.example($|\/)|localhost|example\.com/.test(origin)) {
+    throw new Error(`build guard failed: site.origin '${origin}' is not a real https origin (set SITE_ORIGIN)`);
+  }
+
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(OUT, { recursive: true });
 
   // Assets (text assets pass the emoji guard too — a CSS `content:` emoji
-  // would otherwise ship unchecked)
+  // would otherwise ship unchecked). The stylesheet is content-hashed so it
+  // can be cached immutably yet still update the instant it changes.
   const assetOut = path.join(OUT, 'assets');
   fs.mkdirSync(assetOut, { recursive: true });
+  const assetNames = {};
   for (const f of fs.readdirSync(ASSETS)) {
-    if (/\.(css|js|svg|txt)$/.test(f) && EMOJI_RE.test(fs.readFileSync(path.join(ASSETS, f), 'utf8'))) {
+    const raw = fs.readFileSync(path.join(ASSETS, f));
+    if (/\.(css|js|svg|txt)$/.test(f) && EMOJI_RE.test(raw.toString('utf8'))) {
       throw new Error(`build guard failed for asset ${f}: emoji found (spec section 10)`);
     }
-    fs.copyFileSync(path.join(ASSETS, f), path.join(assetOut, f));
+    let outName = f;
+    if (f.endsWith('.css')) {
+      const hash = crypto.createHash('sha256').update(raw).digest('hex').slice(0, 10);
+      outName = f.replace(/\.css$/, `.${hash}.css`);
+    }
+    assetNames[f] = outName;
+    fs.writeFileSync(path.join(assetOut, outName), raw);
   }
 
   // Build-time D1 export (empty in Phase 0)
@@ -109,6 +126,7 @@ function main() {
 
   const ctx = {
     site: config.site,
+    assets: assetNames,
     breaches: published,
     litigation,
     rubric: require(path.join(ROOT, 'packages/severity/rubric.json')),
@@ -141,12 +159,17 @@ function main() {
       '  X-Content-Type-Options: nosniff',
       '  X-Frame-Options: DENY',
       '  Referrer-Policy: strict-origin-when-cross-origin',
-      '  Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()',
+      '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
       "  Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
       '  Cross-Origin-Opener-Policy: same-origin',
+      // 6 months, no preload: long enough to protect returning visitors,
+      // short enough to back out of without a browser-list removal request.
+      '  Strict-Transport-Security: max-age=15552000; includeSubDomains',
       '',
+      // Content-hashed filenames, so a year of caching is safe and a restyle
+      // still reaches returning visitors immediately under its new name.
       '/assets/*',
-      '  Cache-Control: public, max-age=604800',
+      '  Cache-Control: public, max-age=31536000, immutable',
       '',
     ].join('\n')
   );

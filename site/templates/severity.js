@@ -39,33 +39,33 @@ When the rubric changes, the version number changes, and existing scores record 
 <h2>Component 1: data class subtotal (capped at ${rubric.data_class_subtotal.cap})</h2>
 <p>The sum of the weights of every data class the breach exposed. Weights reflect permanence: a Social Security
 number cannot be rotated the way a payment card can.</p>
-<table>
+<div class="table-scroll"><table>
 <thead><tr><th>Data class</th><th>Permanence</th><th>Weight</th></tr></thead>
 <tbody>${weightRows}</tbody>
-</table>
+</table></div>
 
 <h2>Component 2: scale modifier (0&ndash;${rubric.scale_modifier.max})</h2>
 <p>Log-scaled on the number of records affected. Bands include their lower bound and exclude their upper bound.
 When the record count is undisclosed, this component scores 0 and the breakdown says so.</p>
-<table>
+<div class="table-scroll"><table>
 <thead><tr><th>Records affected</th><th>Points</th></tr></thead>
 <tbody>${scaleRows}</tbody>
-</table>
+</table></div>
 
 <h2>Component 3: remediation gap modifier (0&ndash;${rubric.remediation_gap_modifier.max})</h2>
 <p>Scores the gap between what was exposed and what the notifying entity offered affected people.</p>
-<table>
+<div class="table-scroll"><table>
 <thead><tr><th>Condition</th><th>Points</th></tr></thead>
 <tbody>${gapRows}</tbody>
-</table>
+</table></div>
 
 <h2>Component 4: notification lag modifier (0&ndash;${rubric.notification_lag_modifier.max})</h2>
 <p>Days between the entity's stated discovery date and its notification date. When either date is undisclosed,
 this component scores 0 and the breakdown says so.</p>
-<table>
+<div class="table-scroll"><table>
 <thead><tr><th>Lag</th><th>Points</th></tr></thead>
 <tbody>${lagRows}</tbody>
-</table>
+</table></div>
 
 <h2>Rubric provenance</h2>
 <p>The rubric is editorial policy, not a government source: it is maintained in the site repository as
@@ -75,6 +75,7 @@ are reserved for government and court documents.</p>`;
 
   return page({
     site,
+    assets: ctx.assets,
     route: '/severity',
     title: `Severity rubric v${rubric.version}`,
     description: 'The published, versioned rubric used to score breach severity: data class weights, scale, remediation gap, and notification lag.',

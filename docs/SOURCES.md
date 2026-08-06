@@ -31,7 +31,7 @@ is updated with the new URL and a fresh verification date.
 
 ## Seeded reference data
 
-- **Data class weights** are editorial policy, published in full at [/severity](/severity), versioned in
+- **Data class weights** are editorial policy, published in full at [/severity](/severity/), versioned in
   `packages/severity/rubric.json`.
 - **State notification-law reference** (`state_rights` table): seeded 2026-08-02 from statutory research with an
   independent cross-check pass; each row carries a `last_verified` date. Rows are re-verified against the official

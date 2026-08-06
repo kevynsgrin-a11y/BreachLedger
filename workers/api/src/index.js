@@ -10,7 +10,7 @@ export default {
     const url = new URL(request.url);
     switch (url.pathname) {
       case '/api/health':
-        return json({ ok: true, service: 'breachledger-api' });
+        return json({ ok: true, service: 'breachbook-api' });
       case '/api/deadlines':
         return json({ error: 'settlement deadline feed lands in Phase 4' }, 501);
       case '/api/subscribe':

@@ -6,6 +6,7 @@ function render(ctx) {
   const content = `<article class="doc">${body}</article>`;
   return page({
     site,
+    assets: ctx.assets,
     route: '/corrections',
     title: 'Corrections',
     description: 'Corrections policy and the log of every correction issued, with the date and what changed.',

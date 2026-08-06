@@ -9,6 +9,7 @@
   --ink-faint: #6e737a;
   --paper: #fbfbfa;
   --panel: #f2f2ef;
+  --zebra: #f7f7f5;
   --rule: #d6d6d1;
   --accent: #2b5b84;        /* links only */
   --deadline-amber: #92610c; /* actual legal deadlines only */
@@ -35,7 +36,14 @@ h1 { font-size: 1.7rem; margin: 1.6rem 0 0.4rem; }
 h2 { font-size: 1.25rem; margin: 1.8rem 0 0.4rem; }
 h3 { font-size: 1.05rem; margin: 1.4rem 0 0.3rem; }
 
+/* Prose is constrained to a readable measure while tables keep the full
+   column width — density belongs to the data, not to the paragraphs. */
+main p, main li { max-width: 42rem; }
+main ul { padding-left: 1.15rem; margin: 0.6rem 0 1rem; }
+main li { margin-bottom: 0.35rem; }
+
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:focus-visible, .site-nav a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 .site-header { border-bottom: 2px solid var(--ink); background: var(--paper); padding: 1.1rem 0 0.8rem; }
 .masthead { margin: 0; font-size: 1.5rem; letter-spacing: 0.01em; }
@@ -47,10 +55,13 @@ a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset:
 
 main { padding-bottom: 3rem; }
 
-table { border-collapse: collapse; width: 100%; margin: 0.8rem 0 1.2rem; font-size: 0.9rem; }
+/* Wide tables scroll inside their own box; the page body never scrolls
+   sideways. .table-scroll wraps every table the templates emit. */
+.table-scroll { overflow-x: auto; margin: 0.8rem 0 1.2rem; -webkit-overflow-scrolling: touch; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
 th, td { border: 1px solid var(--rule); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
 th { background: var(--panel); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
-tbody tr:nth-child(even) { background: #f7f7f5; }
+tbody tr:nth-child(even) { background: var(--zebra); }
 
 code { font-family: var(--mono); font-size: 0.85em; background: var(--panel); padding: 0.08em 0.3em; border-radius: 2px; }
 
@@ -86,3 +97,18 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--panel); pa
 .site-footer { border-top: 1px solid var(--rule); margin-top: 2rem; padding: 1.2rem 0 2rem; color: var(--ink-faint); font-size: 0.85rem; }
 
 hr { border: 0; border-top: 1px solid var(--rule); margin: 1.6rem 0; }
+
+/* Printing is a first-class use case for a citable record: keep the rules and
+   spell out link targets so a printed page remains verifiable. */
+@media print {
+  body { background: #fff; color: #000; font-size: 11pt; }
+  .site-nav { display: none; }
+  .wrap { max-width: none; padding: 0; }
+  .table-scroll { overflow: visible; }
+  th { background: #eee; }
+  a { color: #000; text-decoration: underline; }
+  main a[href^="http"]::after { content: " (" attr(href) ")"; font-size: 0.85em; word-break: break-all; }
+  .citations { border: 1px solid #000; }
+  thead { display: table-header-group; }
+  tr, .citations { break-inside: avoid; }
+}
