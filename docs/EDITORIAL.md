@@ -36,6 +36,43 @@ choose the option that makes the site look more like a government record and les
 - Double opt-in before any alert send; one-click unsubscribe in every send.
 - Privacy policy covering CCPA/CPRA ships before any subscription form goes live.
 
+### Records from the 42 CFR Part 2 listing
+
+HHS publishes a breach listing for federally assisted substance use disorder treatment
+programs, separate from its HIPAA listing. These records name organizations, not people —
+the same shape as every other record here — but an organization's name can itself be
+disclosing in a way a hospital's is not. The rules below are settled and are not to be
+reopened case by case.
+
+- **They are published, on the same terms as every other record.** Omitting them would build a
+  two-tier record: the one population whose breach carries the heaviest consequences would be
+  the only one with no page, no severity, and no remediation guidance. Omission also cannot be
+  silent, because this site states its own coverage — so the alternative is announcing that a
+  category is too shameful to list, which is worse than including it plainly.
+- **The regime appears on the page, never in the metadata.** A breach page from this listing
+  carries one flat provenance note saying which listing published it and what the rule is. It
+  does not appear in `<title>`, `<meta name="description">`, or any og tag. A reader who opens
+  the page learns the context; a search result under the organization's name does not carry it.
+- **No new severity weight, ever, on this basis.** A weighted substance-use class would be a
+  stigma judgement rendered as arithmetic — the site asserting this diagnosis is worse to
+  expose than any other, which no source says. It would also be detectable only from which
+  listing published the row, so a hospital filing an identical incident under HIPAA would score
+  lower than a standalone program filing it under Part 2: the number would stop measuring the
+  breach and start measuring the filer's corporate structure. It would additionally sort these
+  records toward the top of severity-ranked views, buying more prominence for exactly the
+  records this section exists to be careful with.
+- **No index, filter, sector, or tag grouping breaches by type of treatment.** These records are
+  reachable the way every other record is: by organization, by year, by sector. A browsable page
+  of substance use disorder program breaches would assemble something the government does not
+  publish.
+- **Language.** Use "substance use disorder", the term the statute and HHS use — never "substance
+  abuse", "addiction", "rehab", or "drug treatment". Say "individuals", not "patients of this
+  program". Do not describe these records as sensitive, specially protected, or protected beyond
+  HIPAA: each reads as a ranking of whose medical condition matters more. Do not name the
+  downstream harm channel — employment, custody, licensure, housing — because it is unsourced
+  speculation and naming it is itself the amplifier. The listing is a report, never a finding:
+  the program is not said to have violated anything.
+
 ## Sourcing
 
 - Every fact traces to a government or court source, linked and dated, in a citation block that renders as
