@@ -39,9 +39,20 @@ const SOURCES = [
 // somewhere below it. Round 3 starts from that landing page and reports every
 // link on it, which is how the actual breach listing gets found rather than
 // guessed at for a third time.
+// Round 4. Rounds 1-3 established the old paths are gone and the successor
+// landing pages carry no listing. Search then surfaced a specific claim worth
+// checking rather than believing: that Maine took its public breach database
+// OFFLINE in June 2026 after hoax filings were auto-published, and that the
+// old "aeviewer" application was replaced by an "agviewer" one at a GUID path.
+//
+// None of that has been verified against the live site. These are the exact
+// addresses to settle it, and the probe reports what they actually return.
 const MAINE_CANDIDATES = [
+  'https://www.maine.gov/agviewer/content/ag/985235c7-cb95-4be2-8792-a1252b4f8318/list.html',
+  'https://www.maine.gov/ag/consumer-protection/data-security-breaches',
+  'https://www.maine.gov/ag/news-and-library/press-releases/statement-office-maine-attorney-general-abuse-data-breach-reporting',
+  'https://www.maine.gov/ag/docs/Data-Breach-Spreadsheet.xlsx',
   'https://www.maine.gov/ag/consumer-protection/consumer-help-topics/privacy-and-identity-theft',
-  'https://www.maine.gov/ag/about-us/consumer-protection',
 ];
 
 // Paths worth trying for a machine-readable listing. A structured feed would
@@ -312,6 +323,10 @@ async function probeMaineCandidates() {
   for (const url of MAINE_CANDIDATES) {
     try {
       const res = await politeFetch(url, { raw: true });
+      if (/^PK\x03\x04/.test(res.body) || /\.xlsx?$/i.test(url)) {
+        console.log(`  OK ${url}\n     ${res.body.length} bytes, binary (spreadsheet) — exists, contents not parsed here`);
+        continue;
+      }
       const t = tables(res.body);
       const biggest = t.sort((a, b) => b.rowCount - a.rowCount)[0];
       console.log(
@@ -336,6 +351,17 @@ async function probeMaineCandidates() {
           seen.add(x.href);
           console.log(`       ${x.href}  "${x.text}"`);
         }
+        // A listing that has been withdrawn says so in prose, not in a link.
+        const prose = textOf(res.body);
+        const notice = [];
+        const nre = /[^.]{0,160}(?:offline|unavailable|temporarily|suspended|removed|hoax|false report|under review|no longer)[^.]{0,160}\./gi;
+        let mm;
+        while ((mm = nre.exec(prose)) && notice.length < 6) notice.push(mm[0].trim());
+        if (notice.length) {
+          console.log('     PROSE suggesting the listing is withdrawn:');
+          notice.forEach((n) => console.log(`       "${n}"`));
+        }
+        console.log(`     first 400 chars of visible text: ${prose.slice(0, 400)}`);
       }
     } catch (err) {
       console.log(`  -- ${url}: ${err.message.replace(/\s+/g, ' ').slice(0, 100)}`);
