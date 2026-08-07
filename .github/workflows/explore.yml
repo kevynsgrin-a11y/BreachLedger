@@ -33,11 +33,17 @@ jobs:
           cache: npm
       - run: npm ci
 
+      # The Part 2 grid's address is now known, so 'part2' no longer means
+      # "go find it" — it means "read its schema off the rendered grid", which
+      # is the open question the Part 2 dry run left behind.
       - name: Probe the portal
         run: |
           set -o pipefail
-          node scripts/explore-hhs.js \
-            ${{ github.event.inputs.target == 'part2' && '--part2' || '' }} 2>&1 | tee /tmp/explore.log
+          if [ "${{ github.event.inputs.target }}" = "part2" ]; then
+            node scripts/probe-part2-schema.js 2>&1 | tee /tmp/explore.log
+          else
+            node scripts/explore-hhs.js 2>&1 | tee /tmp/explore.log
+          fi
 
       - name: Publish the inventory
         if: always()
