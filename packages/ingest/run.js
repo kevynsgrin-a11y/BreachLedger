@@ -183,7 +183,11 @@ async function main() {
   assignSlugs(valid, { stableKey: (r) => r.id });
 
   // --- write -------------------------------------------------------------
-  const existingRows = dryRun && !fromFile ? [] : d1Query('SELECT * FROM breaches', remote);
+  // Always read current state, including on a dry run. A dry run whose
+  // "would insert" count is computed against an empty table reports every
+  // record as new and none as unchanged, which is exactly the reassurance a
+  // preview must not give. This is a read; it is safe in every mode.
+  const existingRows = d1Query('SELECT * FROM breaches', remote);
   const existingBreaches = new Map(existingRows.map((r) => [r.id, r]));
   const existingSources = new Set(
     d1Query('SELECT breach_id, source_type, source_url FROM sources', remote).map(
