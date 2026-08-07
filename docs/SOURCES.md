@@ -15,6 +15,7 @@ sources is never rendered.
 | Texas Attorney General data breach reports | `tx_ag` | HTML list | scheduled fetch, daily | [oag.texas.gov/consumer-protection/data-breach-reporting](https://oag.texas.gov/consumer-protection/data-breach-reporting) | 3 | pending — endpoint documented 2026-08-02, not yet fetch-verified |
 | SEC EDGAR 8-K Item 1.05 filings | `sec_8k` | full-text search API (JSON) | scheduled fetch, daily | [efts.sec.gov/LATEST/search-index](https://efts.sec.gov/LATEST/search-index?q=%22Item%201.05%22&forms=8-K) via [sec.gov/edgar/search](https://www.sec.gov/edgar/search/) | 3 | pending — endpoint documented 2026-08-02, not yet fetch-verified |
 | CourtListener REST API v4 | `courtlistener` | JSON API (token required) | scheduled fetch, hourly for tracked dockets | [courtlistener.com/api/rest/v4/](https://www.courtlistener.com/api/rest/v4/) | 4 | pending — endpoint documented 2026-08-02, not yet fetch-verified |
+| HHS OCR 42 CFR Part 2 breach report | `hhs_part2` | CSV export via JSF form postback | not yet implemented | [ocrportal.hhs.gov/ocr/breach/breach_frontpage.jsf](https://ocrportal.hhs.gov/ocr/breach/breach_frontpage.jsf) | planned | **not ingested** — added to the portal February 2026; see coverage note below |
 
 Endpoint verification policy: government portals rotate paths without notice. Each ingest run re-verifies its
 endpoint and **fails loudly on a 404** — a source is never silently skipped. When an endpoint moves, this table
@@ -39,6 +40,12 @@ than appearing complete.
   or the set of states notified. Those fields are therefore empty on records sourced only
   from HHS, and the severity score's notification-lag and remediation components are
   reported as not assessable rather than assumed.
+- **42 CFR Part 2 breaches are not yet ingested.** In February 2026 the OCR portal added a
+  second, separate report covering breaches of substance use disorder treatment records
+  held by Part 2 programs — a different legal regime from HIPAA, with its own
+  under-investigation and archived listings. Those records exist on the portal and are not
+  in this database. A breach of a substance use disorder program may therefore be absent
+  here while being publicly reported by HHS. Ingesting that report is planned work.
 - State attorney general sources, SEC filings, and litigation records are not yet ingested.
   The sources above marked for later phases are documented, not live.
 
