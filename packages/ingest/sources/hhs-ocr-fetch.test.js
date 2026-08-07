@@ -310,3 +310,31 @@ test('dataRowsOf ignores the header, which carries volatile JSF object identity'
   assert.notEqual(a, b);
   assert.equal(dataRowsOf(a), dataRowsOf(b));
 });
+
+test('does not mistake two legitimately empty views for a failed tab switch', async () => {
+  // The live Part 2 listing: no records in either view. Identical data rows is
+  // the correct outcome here, not evidence the tab failed to change.
+  const EMPTY = '"javax.faces.component.UIPanel@aaa","State"\n';
+  const EMPTY2 = '"javax.faces.component.UIPanel@bbb","State"\n';
+  const grid = TABBED_GRID.replace(
+    '<ul class="ui-tabs-nav">',
+    '<tr class="ui-datatable-empty-message"><td>No records found.</td></tr><ul class="ui-tabs-nav">'
+  );
+  let exports = 0;
+  const impl = async (url, opts = {}) => {
+    const body = String(opts.body || '');
+    if ((opts.method || 'GET') === 'GET') return { body: grid, checksum: 'g', retrieved_at: 'T' };
+    if (body.includes('tabChange') || body.includes('_activeIndex=1')) {
+      return { body: ARCHIVE_PARTIAL, checksum: 'p', retrieved_at: 'T' };
+    }
+    return { body: exports++ === 0 ? EMPTY : EMPTY2, checksum: `c${exports}`, retrieved_at: 'T' };
+  };
+  const views = await fetchAllViews({ fetchImpl: impl, gridPage: GRID_PAGE });
+  assert.equal(views.length, 2, 'the archive view should be accepted, not rejected');
+  assert.equal(views[1].view, 'archive');
+});
+
+test('still rejects a failed tab switch when the views actually hold rows', async () => {
+  const { impl } = mockTabbedPortal({ archiveWorks: false });
+  await assert.rejects(() => fetchAllViews({ fetchImpl: impl }), /could not export distinct archived data/);
+});

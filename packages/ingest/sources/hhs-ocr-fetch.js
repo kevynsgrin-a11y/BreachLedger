@@ -343,12 +343,26 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true, g
     // a raw comparison here passes on content it should reject. Observed on the
     // Part 2 report, where both views are currently empty: 208 bytes each,
     // different hashes, same (zero) rows.
-    if (dataRowsOf(got.res.body) === dataRowsOf(views[0].csv)) {
+    const archiveData = dataRowsOf(got.res.body);
+    const bothEmpty = !archiveData.trim() && !dataRowsOf(views[0].csv).trim();
+    if (archiveData === dataRowsOf(views[0].csv) && !bothEmpty) {
       attempts.push(
         `archive[${variant.name}]: export succeeded but returned the same data rows as the ` +
           'under-investigation view — the tab did not actually change'
       );
       continue;
+    }
+    if (bothEmpty) {
+      // Both views hold no records, so there is nothing to double-count and
+      // nothing missing -- but equally, nothing distinguishes a switch to an
+      // empty archive from a switch that never happened. Say so rather than
+      // imply the archive was verified. No fact is published either way, and
+      // the guard regains full force the moment either view has a row.
+      console.error(
+        `${label}: both views exported zero rows. With no data on either side, the archive tab ` +
+          'switch cannot be independently confirmed — recorded as an empty listing, not as a ' +
+          'verified archive.'
+      );
     }
 
     archived = {
