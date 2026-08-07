@@ -109,7 +109,11 @@ async function main() {
     console.error(`ingest: reading ${fromFile} (${text.length} bytes) instead of fetching`);
   } else {
     console.error('ingest: driving the HHS OCR portal export sequence (both views)...');
-    views = await fetchAllViews({ requireArchive: coverage !== 'current', gridPage: selected.gridPage });
+    views = await fetchAllViews({
+      requireArchive: coverage !== 'current',
+      gridPage: selected.gridPage,
+      label: sourceId,
+    });
     if (coverage === 'current') console.error('ingest: coverage=current (recent view only, documented on /sources)');
     for (const v of views) {
       console.error(
@@ -128,15 +132,29 @@ async function main() {
     const { headers, rows } = hhs.parse(v.csv);
     totalRows += rows.length;
     console.error(`ingest: view ${v.view}: parsed ${rows.length} rows, ${headers.length} columns`);
+    // A zero-row export is either a listing that is genuinely empty or a
+    // retrieval that broke, and those must not be conflated. The portal itself
+    // settles it: an empty datatable renders "No records found." So an empty
+    // export is accepted ONLY when the grid we exported from said so, and is a
+    // hard failure otherwise.
+    //
+    // This is not hypothetical. OCR's 42 CFR Part 2 listing carried no records
+    // at all when it was first ingested -- a real state of the government
+    // record, correctly published as an empty listing rather than as an error.
     if (!rows.length) {
-      throw new Error(`ingest: view ${v.view} contained zero data rows — refusing to proceed`);
+      if (!v.gridReportsEmpty) {
+        throw new Error(
+          `ingest: view ${v.view} contained zero data rows and the grid did not report itself ` +
+            'as empty — refusing to proceed on an unexplained empty export'
+        );
+      }
+      console.error(`ingest: view ${v.view} is empty, and the portal grid confirms it holds no records`);
     }
 
     for (const row of rows) {
       const { record, source } = hhs.normalizeRow(row, {
         retrievedAt: v.retrieved_at,
         checksum: v.checksum,
-        sourceUrl: hhs.PORTAL_URL,
         unknownVectorTokens,
       });
       // Dedupe within and across views: an identical id means the same entity
@@ -218,6 +236,26 @@ async function main() {
         .slice(0, 32);
     }
     delete rec._hhs; // provenance is preserved in sources.raw_payload
+    delete rec.slug_namespace; // consumed by assignSlugs; not a column
+  }
+
+  // A slug is a permanent public URL and the column is UNIQUE. assignSlugs can
+  // only disambiguate within one process, and sources are ingested by separate
+  // processes, so a slug already owned by a DIFFERENT record in D1 has to be
+  // caught here. Left to SQLite it would surface mid-write, after earlier
+  // batches had already been committed, leaving a half-ingested source behind.
+  const slugOwner = new Map();
+  for (const [id, row] of existingBreaches) if (row.slug) slugOwner.set(row.slug, id);
+  const stolen = valid.filter((r) => slugOwner.has(r.slug) && slugOwner.get(r.slug) !== r.id);
+  if (stolen.length) {
+    throw new Error(
+      `ingest: ${stolen.length} record(s) would take a URL already belonging to a different record. ` +
+        'Refusing to write, because a slug is a permanent public URL.\n' +
+        stolen
+          .slice(0, 10)
+          .map((r) => `  - /breach/${r.slug} wanted by ${r.id} (${r.entity_name}), held by ${slugOwner.get(r.slug)}`)
+          .join('\n')
+    );
   }
 
   const { statements, stats } = buildStatements(valid, existingBreaches, existingSources, now);

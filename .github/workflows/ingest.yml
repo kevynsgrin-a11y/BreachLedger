@@ -16,10 +16,11 @@ name: Ingest HHS OCR breach records
 # Each is a distinct legal regime with its own listing. They are ingested as
 # separate sources so provenance stays exact, then exported and deployed once.
 #
-# The scheduled run uses coverage=current deliberately: the archive view holds
-# a decade of closed cases that do not change, so re-fetching it daily is a
-# large fetch for no new facts. Manual dispatch defaults to 'all', which
-# requires the archive and fails loudly if it cannot be reached.
+# The scheduled run ingests both reports. The scheduled run uses
+# coverage=current deliberately: the archive view holds a decade of closed
+# cases that do not change, so re-fetching it daily is a large fetch for no new
+# facts. Manual dispatch defaults to 'all', which requires the archive and
+# fails loudly if it cannot be reached.
 #
 # Requires the same secrets as deploy.yml:
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
@@ -81,7 +82,7 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          INGEST_SOURCE: ${{ github.event.inputs.source || 'hhs_ocr' }}
+          INGEST_SOURCE: ${{ github.event.inputs.source || 'both' }}
           INGEST_COVERAGE: ${{ github.event.inputs.coverage || (github.event_name == 'schedule' && 'current' || 'all') }}
           INGEST_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |

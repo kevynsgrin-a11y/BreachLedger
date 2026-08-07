@@ -23,16 +23,25 @@ function slugifyText(text) {
 }
 
 /**
- * Build a breach slug: "<entity>-<yyyy-mm>".
+ * Build a breach slug: "<entity>-<yyyy-mm>", or "<entity>-<namespace>-<yyyy-mm>".
  * Month granularity keeps the URL readable while separating an entity's
  * repeat breaches in the common case.
+ *
+ * The namespace exists because a single organization can file to two different
+ * government listings under two different rules — HHS runs a HIPAA breach
+ * report and a separate 42 CFR Part 2 one. Those are distinct filings and get
+ * distinct records, so they must get distinct URLs. Disambiguating them with a
+ * numeric suffix would not do: which filing won the bare slug would depend on
+ * which source happened to be ingested first, and the URLs are permanent.
  */
-function breachSlug(entityName, notificationDate) {
+function breachSlug(entityName, notificationDate, namespace = null) {
   let entity = slugifyText(entityName);
   if (!entity) entity = 'unnamed-entity';
   if (entity.length > MAX_ENTITY_CHARS) {
     entity = entity.slice(0, MAX_ENTITY_CHARS).replace(/-+[^-]*$/, ''); // cut on a word boundary
   }
+  const ns = slugifyText(namespace);
+  if (ns) entity = `${entity}-${ns}`;
   const ym = /^(\d{4})-(\d{2})/.exec(notificationDate || '');
   return ym ? `${entity}-${ym[1]}-${ym[2]}` : entity;
 }
@@ -46,7 +55,7 @@ function breachSlug(entityName, notificationDate) {
 function assignSlugs(records, { stableKey = (r) => r.id } = {}) {
   const groups = new Map();
   for (const r of records) {
-    const base = breachSlug(r.entity_name, r.notification_date);
+    const base = breachSlug(r.entity_name, r.notification_date, r.slug_namespace);
     if (!groups.has(base)) groups.set(base, []);
     groups.get(base).push(r);
   }

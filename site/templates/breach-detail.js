@@ -153,6 +153,24 @@ being added; absence from this page is not evidence that none exists.</p>`;
     })
     .join('');
 
+  // Which OCR listing this record came from. Derived from the source rows, not
+  // from a field on the record: provenance is what the sources table holds, it
+  // survives a later cross-source merge, and it keeps this note and the
+  // citation block below agreeing by construction.
+  //
+  // The wording is deliberately flat. It states which listing published the
+  // record and what the rule is, and stops there. It says nothing about any
+  // individual, ranks no diagnosis against another, and names no downstream
+  // consequence -- naming a harm channel here would be both unsourced and the
+  // thing that amplifies it.
+  const regimeNote = sources.some((s) => s.source_type === 'hhs_part2')
+    ? `<p class="record-note">HHS publishes this breach in its 42 CFR Part 2 listing, which is separate from
+its HIPAA listing. Part 2 covers records held by federally assisted substance use disorder treatment
+programs, and breaches of those records affecting 500 or more individuals are reported to HHS and posted
+publicly under the same breach notification rule that applies to HIPAA breaches. As on every page here, this
+record names the reporting organization and identifies no individual.</p>`
+    : '';
+
   const year = (breach.notification_date || '').slice(0, 4);
   const nav = [
     breach.sector ? `<a href="/sector/${escapeHtml(breach.sector)}/">All ${escapeHtml(breach.sector)} breaches</a>` : '',
@@ -169,7 +187,7 @@ being added; absence from this page is not evidence that none exists.</p>`;
   ${breach.notification_date ? `Reported ${escapeHtml(fmtDate(breach.notification_date))}.` : ''}
   ${breach.breach_vector ? ` Cause on the record: ${escapeHtml(VECTOR_LABEL[breach.breach_vector] || breach.breach_vector)}.` : ''}
 </p>
-
+${regimeNote}
 ${severityBlock(breach, dataClassMap)}
 
 <h2>What was exposed</h2>

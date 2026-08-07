@@ -116,15 +116,17 @@ function reportGrid(label, url, res) {
   console.log(`mentions "HIPAA"/"Covered Entity": ${mentionsHipaa}`);
 
   const cells = headerCells(res.body);
-  console.log(`\n-- rendered column headings (${cells ? cells.length : 'NO THEAD FOUND'}) --`);
+  console.log(`\n-- rendered <th> cells (${cells ? cells.length : 'NO THEAD FOUND'}) --`);
   if (cells) {
     cells.forEach((c, i) => {
       console.log(`  [${i}] columnTitle=${JSON.stringify(c.columnTitle)}`);
-      console.log(`       fullText=${JSON.stringify(c.fullText)}`);
       console.log(`       id=${c.id}`);
       if (!c.columnTitle) console.log(`       raw=${c.rawExcerpt}`);
     });
   }
+  const titles = dataColumns(cells);
+  console.log(`\n-- data columns, expander excluded (${titles ? titles.length : 0}) --`);
+  if (titles) titles.forEach((t, i) => console.log(`  [${i}] ${JSON.stringify(t)}`));
 
   const e = emptinessSignals(res.body);
   console.log(`\n-- emptiness signals --`);
@@ -132,12 +134,29 @@ function reportGrid(label, url, res) {
   console.log(`  paginatorText: ${JSON.stringify(e.paginatorText)}`);
   console.log(`  dataRowCount : ${e.dataRowCount}`);
   for (const t of e.countText) console.log(`  countText    : ${JSON.stringify(t)}`);
-  return cells;
+  return titles;
 }
 
-function controlPassed(cells) {
-  if (!cells) return false;
-  const titles = cells.map((c) => c.columnTitle || c.fullText);
+/**
+ * Drop the leading row-expander column.
+ *
+ * Both grids put a PrimeFaces row-expansion toggle in the first <th>, which
+ * carries an "Expand All" command link and its inline widget script rather than
+ * a column heading. It has no counterpart in the CSV export -- both grids
+ * render this cell and neither exports a column for it -- so it is excluded
+ * from the schema by identifying it, not by assuming a fixed offset.
+ */
+function dataColumns(cells) {
+  if (!cells) return null;
+  const isHeading = (c) => {
+    const t = c.columnTitle || c.fullText || '';
+    return t && !/PrimeFaces|function\s*\(|Expand All/.test(t);
+  };
+  return cells.filter(isHeading).map((c) => c.columnTitle || c.fullText);
+}
+
+function controlPassed(titles) {
+  if (!titles) return false;
   // The control passes only if every documented HIPAA column name is recovered,
   // in order. Anything less and the extraction method is not trustworthy.
   if (titles.length !== ALL_COLUMNS.length) return false;
@@ -150,12 +169,12 @@ async function main() {
   // --- CONTROL: the HIPAA grid, whose column names we already know ---------
   const hipaaJar = new CookieJar();
   const hipaa = await politeFetch(GRID_PAGE, { raw: true, jar: hipaaJar });
-  const hipaaCells = reportGrid('CONTROL — HIPAA grid (known schema)', GRID_PAGE, hipaa);
+  const hipaaTitles = reportGrid('CONTROL — HIPAA grid (known schema)', GRID_PAGE, hipaa);
 
-  const ok = controlPassed(hipaaCells);
+  const ok = controlPassed(hipaaTitles);
   console.log(`\n-- CONTROL RESULT --`);
   console.log(`  expected: ${JSON.stringify(ALL_COLUMNS)}`);
-  console.log(`  recovered: ${JSON.stringify(hipaaCells ? hipaaCells.map((c) => c.columnTitle || c.fullText) : null)}`);
+  console.log(`  recovered: ${JSON.stringify(hipaaTitles)}`);
   console.log(`  CONTROL ${ok ? 'PASSED — the extraction reproduces the verified HIPAA names' : 'FAILED — do NOT trust the Part 2 headings below'}`);
 
   // --- SUBJECT: the Part 2 grid -------------------------------------------

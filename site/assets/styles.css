@@ -88,6 +88,15 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--panel); pa
 /* Record furniture */
 .breadcrumb { font-size: 0.85rem; color: var(--ink-faint); margin: 1.2rem 0 0; }
 .record-meta { color: var(--ink-soft); margin-top: 0.2rem; }
+/* Provenance note: which government listing published a record. Set as quiet
+   page furniture, not as a callout -- it is context, not a warning. */
+.record-note {
+  color: var(--ink-soft);
+  font-size: 0.94rem;
+  border-left: 2px solid var(--rule);
+  padding-left: 0.9rem;
+  margin: 1rem 0 1.25rem;
+}
 .not-disclosed { color: var(--ink-faint); font-style: italic; }
 td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .related { font-size: 0.9rem; margin-top: 1.6rem; }
