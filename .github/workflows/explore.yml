@@ -12,7 +12,13 @@ name: Explore HHS portal structure
 # Writes nothing: no D1, no deploy.
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which report to probe'
+        type: choice
+        options: [hipaa, part2]
+        default: hipaa
 
 jobs:
   explore:
@@ -30,13 +36,14 @@ jobs:
       - name: Probe the portal
         run: |
           set -o pipefail
-          node scripts/explore-hhs.js 2>&1 | tee /tmp/explore.log
+          node scripts/explore-hhs.js \
+            ${{ github.event.inputs.target == 'part2' && '--part2' || '' }} 2>&1 | tee /tmp/explore.log
 
       - name: Publish the inventory
         if: always()
         run: |
           {
-            echo '## HHS portal structure'
+            echo '## HHS portal structure (${{ github.event.inputs.target || 'hipaa' }})'
             echo '```'
             head -c 60000 /tmp/explore.log 2>/dev/null || echo 'no output'
             echo '```'

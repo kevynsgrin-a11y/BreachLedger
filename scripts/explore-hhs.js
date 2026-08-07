@@ -10,7 +10,8 @@
 //
 // It is read-only: it fetches and reports, and never writes to D1 or the site.
 //
-// Usage: node scripts/explore-hhs.js
+// Usage: node scripts/explore-hhs.js            (HIPAA report)
+//        node scripts/explore-hhs.js --part2   (42 CFR Part 2 report)
 
 const { politeFetch } = require('../packages/ingest/fetch-util');
 const jsf = require('../packages/ingest/sources/hhs-jsf');
@@ -78,10 +79,40 @@ function report(label, html) {
 }
 
 async function main() {
+  const target = (process.argv.includes('--part2') ? 'part2' : 'hipaa');
   const jar = new CookieJar();
 
   const front = await politeFetch(FRONT_PAGE, { raw: true, jar });
   report('FRONT PAGE', front.body);
+
+  if (target === 'part2') {
+    // The Part 2 report has no known URL; it is reached from the front page by
+    // the command a human would click. Find it by label, never by a generated id.
+    const label = /42 CFR Part 2 Breach Reports/i;
+    const cmd = jsf.findCommandMatching(front.body, label);
+    if (!cmd) {
+      console.log('\nno "View 42 CFR Part 2 Breach Reports" command on the front page');
+      console.log('commands present:');
+      for (const c of jsf.listCommandCandidates(front.body)) console.log(`  - ${c.commandId} label="${c.label}"`);
+      return;
+    }
+    const hidden = jsf.extractHiddenInputs(front.body);
+    const action = new URL(jsf.extractFormAction(front.body) || FRONT_PAGE, FRONT_PAGE).toString();
+    console.log(`\nnavigating to the Part 2 report via ${cmd} ...`);
+    for (const enc of jsf.commandEncodings(hidden, cmd)) {
+      const res = await politeFetch(action, {
+        raw: true, jar, method: 'POST', body: enc.body,
+        headers: { 'Content-Type': enc.contentType },
+      });
+      if (jsf.looksLikeCsv(res.body)) { console.log(`  [${enc.name}] returned CSV, skipping`); continue; }
+      // Report the final URL too: that is how we learn the Part 2 grid's address.
+      console.log(`  [${enc.name}] final URL: ${res.final_url || '(not reported)'} redirected=${res.redirected}`);
+      report(`PART 2 REPORT [${enc.name}]`, res.body);
+      if (res.body.length !== front.body.length) return;
+      console.log(`  [${enc.name}] response same size as the front page; trying next encoding`);
+    }
+    return;
+  }
 
   const grid = await politeFetch(GRID_PAGE, { raw: true, jar });
   report('REPORT GRID (default view)', grid.body);
