@@ -323,8 +323,20 @@ async function probeMaineCandidates() {
   for (const url of MAINE_CANDIDATES) {
     try {
       const res = await politeFetch(url, { raw: true });
-      if (/^PK\x03\x04/.test(res.body) || /\.xlsx?$/i.test(url)) {
-        console.log(`  OK ${url}\n     ${res.body.length} bytes, binary (spreadsheet) — exists, contents not parsed here`);
+      // Judge by CONTENT, never by the extension in the URL. An earlier
+      // version trusted the .xlsx suffix and duly reported a spreadsheet that
+      // was in fact an HTML page served at that address -- the byte count gave
+      // it away by exactly matching another page. That is the same
+      // judge-by-the-label mistake the HHS fetcher exists to avoid.
+      if (/\.xlsx?$/i.test(url)) {
+        const isZip = res.body.charCodeAt(0) === 0x50 && res.body.charCodeAt(1) === 0x4b;
+        const isHtml = /^\s*<(!doctype|html)/i.test(res.body);
+        console.log(
+          `  ${url}\n     ${res.body.length} bytes, final=${res.final_url}, ` +
+            `zipMagic(PK)=${isZip} looksHtml=${isHtml} -> ` +
+            (isZip ? 'REAL SPREADSHEET' : isHtml ? 'NOT A SPREADSHEET: HTML served at this address' : 'UNKNOWN CONTENT')
+        );
+        if (!isZip) console.log(`     first 200 chars: ${res.body.slice(0, 200).replace(/\s+/g, ' ')}`);
         continue;
       }
       const t = tables(res.body);
