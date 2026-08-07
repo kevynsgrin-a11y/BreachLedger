@@ -33,14 +33,15 @@ const SOURCES = [
 // are the plausible current addresses. Probing them is cheaper and far more
 // definitive than reasoning about how the site was reorganised, and a state
 // government host at one request per second is well within polite use.
+// Round 2 established the Maine AG site was reorganised: the old
+// /ag/consumer/... paths now redirect into a new information architecture,
+// and the landing page they arrive at carries no table. So the list is
+// somewhere below it. Round 3 starts from that landing page and reports every
+// link on it, which is how the actual breach listing gets found rather than
+// guessed at for a third time.
 const MAINE_CANDIDATES = [
-  'https://apps.web.maine.gov/online/aeviewer/ME/40/list.shtml',
-  'https://www.maine.gov/ag/consumer/identity_theft.shtml',
-  'https://www.maine.gov/ag/consumer/identity_theft/index.shtml',
-  'https://www.maine.gov/ag/consumer/identity_theft/breach_notices.shtml',
-  'https://www.maine.gov/ag/consumer/',
-  'https://www.maine.gov/ag/consumer/index.shtml',
-  'https://apps.web.maine.gov/online/aeviewer/ME/40/list.html',
+  'https://www.maine.gov/ag/consumer-protection/consumer-help-topics/privacy-and-identity-theft',
+  'https://www.maine.gov/ag/about-us/consumer-protection',
 ];
 
 // Paths worth trying for a machine-readable listing. A structured feed would
@@ -321,6 +322,20 @@ async function probeMaineCandidates() {
         console.log(`     headers: ${JSON.stringify(biggest.headers)}`);
         biggest.sample.forEach((r, j) => console.log(`     row${j}: ${JSON.stringify(r)}`));
         (biggest.rowLinks || []).forEach((lk, j) => lk.length && console.log(`     row${j} links: ${JSON.stringify(lk)}`));
+      } else {
+        // No table here, so this is a landing page rather than the listing.
+        // Report where it leads: the listing is behind one of these.
+        const l = links(res.body, res.final_url || url);
+        const interesting = l.sample
+          .concat(l.pdf, l.pagination)
+          .filter((x) => /breach|notif|identity|security|data/i.test(`${x.href} ${x.text}`));
+        const seen = new Set();
+        console.log(`     ${l.total} links; those mentioning breach/notification/identity:`);
+        for (const x of interesting) {
+          if (seen.has(x.href)) continue;
+          seen.add(x.href);
+          console.log(`       ${x.href}  "${x.text}"`);
+        }
       }
     } catch (err) {
       console.log(`  -- ${url}: ${err.message.replace(/\s+/g, ' ').slice(0, 100)}`);
