@@ -78,6 +78,44 @@ function report(label, html) {
   for (const h of hits) console.log(`  - ${h}`);
 }
 
+// Candidate addresses for the Part 2 grid. The HIPAA grid is breach_report_hip.jsf
+// and its filing wizard is wizard_breach_hip.jsf, so the portal clearly uses a
+// suffix convention; these are the plausible Part 2 spellings. Probing them
+// directly is cheaper and far more definitive than debugging JSF routing, and
+// at one request per second it is well within polite use.
+const PART2_CANDIDATES = [
+  'breach_report_part2.jsf',
+  'breach_report_p2.jsf',
+  'breach_report_pt2.jsf',
+  'breach_report_part_2.jsf',
+  'breach_report_sud.jsf',
+  'breach_report_42cfr.jsf',
+  'part2_breach_report.jsf',
+  'breach_report_part2_frontpage.jsf',
+];
+
+const BASE_DIR = 'https://ocrportal.hhs.gov/ocr/breach/';
+
+async function probeCandidates(jar) {
+  console.log('\n=== CANDIDATE URL PROBE ===');
+  for (const name of PART2_CANDIDATES) {
+    const url = BASE_DIR + name;
+    try {
+      const res = await politeFetch(url, { raw: true, jar });
+      const commands = jsf.listCommandCandidates(res.body);
+      const csv = jsf.findCsvExportCommand(res.body);
+      const isGrid = Boolean(csv) || /reportResultTable/i.test(res.body);
+      console.log(
+        `  ${name}: OK ${res.body.length} bytes, final=${res.final_url}, ` +
+          `commands=${commands.length}, csvExporter=${csv || 'none'}, looksLikeGrid=${isGrid}`
+      );
+      if (isGrid) report(`CANDIDATE GRID ${name}`, res.body);
+    } catch (err) {
+      console.log(`  ${name}: ${err.message.replace(/\s+/g, ' ').slice(0, 140)}`);
+    }
+  }
+}
+
 async function main() {
   const target = (process.argv.includes('--part2') ? 'part2' : 'hipaa');
   const jar = new CookieJar();
@@ -96,6 +134,8 @@ async function main() {
       for (const c of jsf.listCommandCandidates(front.body)) console.log(`  - ${c.commandId} label="${c.label}"`);
       return;
     }
+    await probeCandidates(jar);
+
     const hidden = jsf.extractHiddenInputs(front.body);
     const action = new URL(jsf.extractFormAction(front.body) || FRONT_PAGE, FRONT_PAGE).toString();
     console.log(`\nnavigating to the Part 2 report via ${cmd} ...`);
@@ -107,9 +147,8 @@ async function main() {
       if (jsf.looksLikeCsv(res.body)) { console.log(`  [${enc.name}] returned CSV, skipping`); continue; }
       // Report the final URL too: that is how we learn the Part 2 grid's address.
       console.log(`  [${enc.name}] final URL: ${res.final_url || '(not reported)'} redirected=${res.redirected}`);
-      report(`PART 2 REPORT [${enc.name}]`, res.body);
-      if (res.body.length !== front.body.length) return;
-      console.log(`  [${enc.name}] response same size as the front page; trying next encoding`);
+      report(`PART 2 NAV RESULT [${enc.name}]`, res.body);
+      console.log(`  [${enc.name}] done; continuing so every encoding reports its landing URL`);
     }
     return;
   }
