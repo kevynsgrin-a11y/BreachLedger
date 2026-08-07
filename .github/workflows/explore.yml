@@ -1,0 +1,43 @@
+name: Explore HHS portal structure
+
+# Read-only discovery probe. Fetches the HHS OCR portal, expands its
+# "Advanced Options" panel, and prints a complete inventory of the form
+# controls, JSF commands, and linked pages it finds.
+#
+# This exists because the archived breach records are not reachable from the
+# report grid — it carries no archive command and links only to the portal
+# home page — so the archive's selector has to be identified from the portal's
+# own markup rather than guessed at.
+#
+# Writes nothing: no D1, no deploy.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Probe the portal
+        run: |
+          set -o pipefail
+          node scripts/explore-hhs.js 2>&1 | tee /tmp/explore.log
+
+      - name: Publish the inventory
+        if: always()
+        run: |
+          {
+            echo '## HHS portal structure'
+            echo '```'
+            head -c 60000 /tmp/explore.log 2>/dev/null || echo 'no output'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
