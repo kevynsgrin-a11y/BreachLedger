@@ -47,31 +47,67 @@ function breachSlug(entityName, notificationDate, namespace = null) {
 }
 
 /**
- * Assign unique slugs across a set of records. Deterministic regardless of
- * input order: colliding records are sorted by a stable key before suffixing,
- * so re-running the ingest never reshuffles which record owns the bare slug.
- * Records are mutated with a `slug` property and returned.
+ * Assign slugs across a set of records.
+ *
+ * THE RULE: a slug is frozen at first publication and never recomputed.
+ *
+ * `existingSlugById` carries what the database already publishes. Any record
+ * whose id appears there keeps that exact slug, whatever its entity name now
+ * says and whoever else is in this run. Only genuinely new records compute one,
+ * and they may only take a slug nobody already holds.
+ *
+ * This is not a refinement. Recomputing slugs was actively breaking published
+ * URLs two ways, both measured against the live code:
+ *
+ *   1. When an entity that already had a record filed a second breach in the
+ *      same month, both fell into one group and were ordered by their sha256
+ *      ids -- so in 48% of cases the NEW record took the bare slug and the
+ *      already-published one was pushed to '-2'. Its indexed URL moved.
+ *   2. When a source respelled an entity ('Acme Clinic' -> 'Acme Clinic, Inc.')
+ *      the recomputed slug simply differed, collided with nothing, and the
+ *      writer emitted UPDATE breaches SET slug. The old URL 404s, and this site
+ *      generates no redirects.
+ *
+ * Both get worse in Phase 2, not better: more sources means more repeat filers
+ * per entity and more spellings of the same name.
  */
-function assignSlugs(records, { stableKey = (r) => r.id } = {}) {
-  const groups = new Map();
+function assignSlugs(records, { stableKey = (r) => r.id, existingSlugById = new Map() } = {}) {
+  // Every slug already spoken for, and by whom.
+  const owner = new Map();
+  for (const [id, slug] of existingSlugById) if (slug) owner.set(slug, id);
+
+  const fresh = [];
   for (const r of records) {
+    const published = existingSlugById.get(r.id);
+    if (published) r.slug = published; // frozen, verbatim
+    else fresh.push(r);
+  }
+
+  // New records only. Sorted by a stable key so the outcome does not depend on
+  // the order the source happened to list them in.
+  const groups = new Map();
+  for (const r of fresh) {
     const base = breachSlug(r.entity_name, r.notification_date, r.slug_namespace);
     if (!groups.has(base)) groups.set(base, []);
     groups.get(base).push(r);
   }
   for (const [base, group] of groups) {
-    if (group.length === 1) {
-      group[0].slug = base;
-      continue;
-    }
     const sorted = group.slice().sort((a, b) => {
       const ka = String(stableKey(a));
       const kb = String(stableKey(b));
       return ka < kb ? -1 : ka > kb ? 1 : 0;
     });
-    sorted.forEach((r, idx) => {
-      r.slug = idx === 0 ? base : `${base}-${idx + 1}`;
-    });
+    for (const r of sorted) {
+      let candidate = base;
+      let n = 1;
+      // Step past anything held by a different record, published or new.
+      while (owner.has(candidate) && owner.get(candidate) !== r.id) {
+        n += 1;
+        candidate = `${base}-${n}`;
+      }
+      r.slug = candidate;
+      owner.set(candidate, r.id);
+    }
   }
   return records;
 }

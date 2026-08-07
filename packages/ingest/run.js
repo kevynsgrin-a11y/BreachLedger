@@ -210,14 +210,12 @@ async function main() {
     rec.severity_rubric_version = s.rubric_version;
   }
 
-  // --- slugs -------------------------------------------------------------
-  assignSlugs(valid, { stableKey: (r) => r.id });
-
-  // --- write -------------------------------------------------------------
-  // Always read current state, including on a dry run. A dry run whose
-  // "would insert" count is computed against an empty table reports every
-  // record as new and none as unchanged, which is exactly the reassurance a
-  // preview must not give. This is a read; it is safe in every mode.
+  // --- current published state -------------------------------------------
+  // Read BEFORE slugs are assigned, because a published slug is frozen and
+  // this is where the frozen value comes from. Always read, including on a dry
+  // run: a preview whose "would insert" count is computed against an empty
+  // table reports every record as new and none as unchanged, which is exactly
+  // the reassurance a preview must not give. This is a read; safe in every mode.
   const existingRows = d1Query('SELECT * FROM breaches', remote);
   const existingBreaches = new Map(existingRows.map((r) => [r.id, r]));
   const existingSources = new Set(
@@ -226,6 +224,13 @@ async function main() {
     )
   );
 
+  // --- slugs -------------------------------------------------------------
+  // A slug is a permanent public URL. Records already in the database keep
+  // theirs verbatim; only new records mint one, and only from what is free.
+  const existingSlugById = new Map([...existingBreaches].map(([id, row]) => [id, row.slug]));
+  assignSlugs(valid, { stableKey: (r) => r.id, existingSlugById });
+
+  // --- write -------------------------------------------------------------
   const now = new Date().toISOString();
   for (const rec of valid) {
     for (const src of rec.sources) {

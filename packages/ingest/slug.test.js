@@ -50,3 +50,60 @@ test('slugs contain only url-safe characters', () => {
     assert.match(s, /^[a-z0-9-]+$/, `bad slug for ${name}: ${s}`);
   }
 });
+
+// --- Published slugs are frozen -------------------------------------------
+// These guard a defect that was live in Phase 1 and would have got worse with
+// every source added: recomputing slugs moved URLs that were already indexed.
+
+test('a published record keeps its slug when a sibling appears in the same month', () => {
+  // Ordering within a group is by sha256 id, so before this was fixed the new
+  // record won the bare slug roughly half the time and evicted the published one.
+  const published = { id: 'ffff-later-sorting', entity_name: 'Riverbend Health', notification_date: '2026-05-04' };
+  const sibling = { id: '0000-earlier-sorting', entity_name: 'Riverbend Health', notification_date: '2026-05-20' };
+  assignSlugs([published, sibling], {
+    existingSlugById: new Map([[published.id, 'riverbend-health-2026-05']]),
+  });
+  assert.equal(published.slug, 'riverbend-health-2026-05', 'the published URL must not move');
+  assert.equal(sibling.slug, 'riverbend-health-2026-05-2');
+});
+
+test('a published record keeps its slug when the source respells the entity', () => {
+  const rec = { id: 'fixed-id', entity_name: 'Acme Clinic, Inc.', notification_date: '2026-05-14' };
+  assignSlugs([rec], { existingSlugById: new Map([['fixed-id', 'acme-clinic-2026-05']]) });
+  assert.equal(rec.slug, 'acme-clinic-2026-05');
+  assert.notEqual(rec.slug, breachSlug(rec.entity_name, rec.notification_date));
+});
+
+test('a new record never takes a slug another record already publishes', () => {
+  const fresh = { id: 'new-1', entity_name: 'Acme Clinic', notification_date: '2026-05-14' };
+  assignSlugs([fresh], { existingSlugById: new Map([['someone-else', 'acme-clinic-2026-05']]) });
+  assert.equal(fresh.slug, 'acme-clinic-2026-05-2');
+});
+
+test('assignment does not depend on the order the source listed the records', () => {
+  const mk = () => [
+    { id: 'b', entity_name: 'Same Name', notification_date: '2026-05-02' },
+    { id: 'a', entity_name: 'Same Name', notification_date: '2026-05-09' },
+    { id: 'c', entity_name: 'Same Name', notification_date: '2026-05-21' },
+  ];
+  const forward = mk();
+  const reversed = mk().reverse();
+  assignSlugs(forward);
+  assignSlugs(reversed);
+  const byId = (list) => Object.fromEntries(list.map((r) => [r.id, r.slug]));
+  assert.deepEqual(byId(forward), byId(reversed));
+});
+
+test('re-running against its own output is a no-op', () => {
+  // The property that matters in production: today's slugs are tomorrow's
+  // frozen slugs, so a second run must change nothing.
+  const records = [
+    { id: 'a', entity_name: 'Clinic One', notification_date: '2026-05-02' },
+    { id: 'b', entity_name: 'Clinic One', notification_date: '2026-05-09' },
+  ];
+  assignSlugs(records);
+  const first = records.map((r) => r.slug);
+  const existing = new Map(records.map((r) => [r.id, r.slug]));
+  assignSlugs(records, { existingSlugById: existing });
+  assert.deepEqual(records.map((r) => r.slug), first);
+});
