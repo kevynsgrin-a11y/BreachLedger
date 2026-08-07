@@ -17,7 +17,7 @@ on:
       target:
         description: 'Which report to probe'
         type: choice
-        options: [hipaa, part2]
+        options: [hipaa, part2, ag]
         default: hipaa
 
 jobs:
@@ -39,11 +39,11 @@ jobs:
       - name: Probe the portal
         run: |
           set -o pipefail
-          if [ "${{ github.event.inputs.target }}" = "part2" ]; then
-            node scripts/probe-part2-schema.js 2>&1 | tee /tmp/explore.log
-          else
-            node scripts/explore-hhs.js 2>&1 | tee /tmp/explore.log
-          fi
+          case "${{ github.event.inputs.target }}" in
+            part2) node scripts/probe-part2-schema.js 2>&1 | tee /tmp/explore.log ;;
+            ag)    node scripts/probe-ag-sources.js  2>&1 | tee /tmp/explore.log ;;
+            *)     node scripts/explore-hhs.js       2>&1 | tee /tmp/explore.log ;;
+          esac
 
       - name: Publish the inventory
         if: always()
