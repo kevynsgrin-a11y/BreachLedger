@@ -1,0 +1,42 @@
+name: Probe the 42 CFR Part 2 schema
+
+# Read-only. Reads the Part 2 column names off the rendered grid, with the
+# HIPAA grid as a control, and dumps the Part 2 CSV exports verbatim.
+#
+# Exists because the Part 2 CSV exporter serializes two of its column headers
+# as "javax.faces.component.UIPanel@..." instead of as text. Those names are
+# read from the portal, never guessed: they end up in sources.raw_payload, the
+# archived provenance for every record.
+#
+# Writes nothing: no D1, no deploy.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Probe
+        run: |
+          set -o pipefail
+          node scripts/probe-part2-schema.js 2>&1 | tee /tmp/probe.log
+
+      - name: Publish the probe output
+        if: always()
+        run: |
+          {
+            echo '## 42 CFR Part 2 schema probe'
+            echo '```'
+            head -c 60000 /tmp/probe.log 2>/dev/null || echo 'no output'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
