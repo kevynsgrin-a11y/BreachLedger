@@ -17,6 +17,7 @@
 
 const { politeFetch, USER_AGENT } = require('../fetch-util');
 const jsf = require('./hhs-jsf');
+const tv = require('./hhs-tabview');
 
 const BASE = 'https://ocrportal.hhs.gov/ocr/breach/';
 const FRONT_PAGE = `${BASE}breach_report.jsf`;
@@ -181,23 +182,25 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } 
   const current = await fetchBreachCsv({ fetchImpl });
   views.push({ view: 'under_investigation', csv: current.csv, checksum: current.steps.checksum, retrieved_at: current.steps.retrieved_at, steps: current.steps });
 
-  // View 2: Archive, reached by toggling on a freshly loaded grid.
+  // View 2: Archive. It is the second tab of a PrimeFaces TabView, loaded on
+  // demand, so it needs a real tabChange postback rather than a command click.
   const jar = new CookieJar();
   const attempts = [];
   const grid = await fetchImpl(GRID_PAGE, { raw: true, jar });
   // Discovery aid: what other portal pages exist, for locating the archive.
   const linked = jsf.linkedPages(grid.body);
   if (linked.length) console.error(`hhs_ocr: .jsf pages linked from the grid: ${linked.join(' | ')}`);
+
   const gridHidden = jsf.extractHiddenInputs(grid.body);
-  const toggle = jsf.findCommandMatching(grid.body, ARCHIVE_PATTERN);
-  if (!toggle) {
-    // The archive is not an in-page toggle on this URL. Report every command
-    // AND every linked .jsf page, so the archive's real location is
-    // identifiable from one run rather than guessed at.
+  const gridAction = new URL(jsf.extractFormAction(grid.body) || GRID_PAGE, GRID_PAGE).toString();
+  const tabView = tv.findTabView(gridHidden);
+  const archiveTabId = tv.findTabId(grid.body, ARCHIVE_PATTERN);
+
+  if (!tabView || !archiveTabId) {
     const err = new Error(
-      'hhs_ocr: no Archive view toggle on the grid page. The archived records are reached ' +
-        'some other way; refusing to publish only the last ~24 months as though it were the ' +
-        'complete record.\n' +
+      'hhs_ocr: could not locate the Archive tab on the report grid. Refusing to publish only ' +
+        'the last ~24 months as though it were the complete record.\n' +
+        `  tabView=${tabView ? tabView.id : 'none'} archiveTab=${archiveTabId || 'none'}\n` +
         '  JSF commands on the grid:\n' +
         jsf.listCommandCandidates(grid.body).map((c) => `    - ${c.commandId} label="${c.label}"`).join('\n') +
         '\n  .jsf pages linked from the grid:\n' +
@@ -205,31 +208,70 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } 
     );
     err.archiveNotFound = true;
     if (requireArchive) throw err;
-    // Documented partial coverage: the caller has accepted that this run
-    // captures only the recent view, and the site states that coverage
-    // explicitly on /sources. Still logged at full volume.
     console.error(`hhs_ocr: WARNING archive view not captured.\n${err.message}`);
     return views;
   }
-  const gridAction = new URL(jsf.extractFormAction(grid.body) || GRID_PAGE, GRID_PAGE).toString();
+
+  console.error(`hhs_ocr: switching to archive tab ${archiveTabId} on tabview ${tabView.id}`);
+
+  // Two shapes of tab switch, because which one the server accepts is a
+  // configuration detail: a PrimeFaces AJAX tabChange, and a plain postback.
+  const switchVariants = [
+    { name: 'ajax-tabchange', fields: tv.buildTabChangeFields(gridHidden, tabView, 1, archiveTabId) },
+    { name: 'plain-postback', fields: tv.buildTabPostbackFields(gridHidden, tabView, 1) },
+  ];
 
   let archived = null;
-  for (const enc of jsf.commandEncodings(gridHidden, toggle)) {
-    const toggled = await fetchImpl(gridAction, {
+  for (const variant of switchVariants) {
+    const body = new URLSearchParams(variant.fields).toString();
+    const res = await fetchImpl(gridAction, {
       raw: true,
       jar,
       method: 'POST',
-      body: enc.body,
-      headers: { 'Content-Type': enc.contentType },
+      body,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     });
-    const candidate = await exportFromPage({
-      fetchImpl, jar, pageUrl: gridAction, pageBody: toggled.body, attempts, pathName: `archive[${enc.name}]`,
+
+    // The response may be a PrimeFaces partial-response XML document; unwrap it
+    // so the ordinary exporter scanners work on the rendered fragment.
+    const { html, viewState, isPartial } = tv.extractPartialResponse(res.body);
+    const merged = tv.mergeViewState(jsf.extractHiddenInputs(html), viewState)
+    const pageHidden = Object.keys(merged).length > 1 ? merged : tv.mergeViewState(gridHidden, viewState);
+    const csvCommand = jsf.findCsvExportCommand(html);
+
+    if (!csvCommand) {
+      attempts.push(
+        `archive[${variant.name}]: ${res.body.length} bytes, partial=${isPartial}, ` +
+          `csvCommand=none, commands=${jsf.listCommandCandidates(html).length}`
+      );
+      continue;
+    }
+
+    const got = await postExport({
+      fetchImpl, jar, action: gridAction, hidden: pageHidden, commandId: csvCommand, attempts,
     });
-    if (candidate) { archived = candidate; break; }
+    if (!got) continue;
+
+    // CRITICAL: prove we actually changed views. If the tab switch silently
+    // failed, the export returns the SAME under-investigation rows, and
+    // publishing them labelled 'archive' would double-count the recent window
+    // and still leave the history missing.
+    if (got.res.body === views[0].csv) {
+      attempts.push(
+        `archive[${variant.name}]: export succeeded but returned byte-identical content to the ` +
+          'under-investigation view — the tab did not actually change'
+      );
+      continue;
+    }
+
+    archived = { csv: got.res, commandId: csvCommand, encoding: got.encoding, path: `archive[${variant.name}]` };
+    break;
   }
+
   if (!archived) {
     const err = new Error(
-      'hhs_ocr: found the Archive toggle but could not export from the archived view.\n' +
+      'hhs_ocr: found the Archive tab but could not export distinct archived data from it. ' +
+        'Refusing to publish the recent view twice under two labels.\n' +
         attempts.map((a) => `  - ${a}`).join('\n')
     );
     err.archiveNotFound = true;
@@ -237,12 +279,13 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } 
     console.error(`hhs_ocr: WARNING archive view not captured.\n${err.message}`);
     return views;
   }
+
   views.push({
     view: 'archive',
     csv: archived.csv.body,
     checksum: archived.csv.checksum,
     retrieved_at: archived.csv.retrieved_at,
-    steps: { path: archived.path, encoding: archived.encoding, csvCommand: archived.commandId, toggle, bytes: archived.csv.body.length },
+    steps: { path: archived.path, encoding: archived.encoding, csvCommand: archived.commandId, tabId: archiveTabId, bytes: archived.csv.body.length },
   });
 
   return views;

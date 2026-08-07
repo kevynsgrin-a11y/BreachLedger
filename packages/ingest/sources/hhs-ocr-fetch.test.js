@@ -136,74 +136,97 @@ test('cookie jar absorbs and replays Set-Cookie', () => {
 
 const { fetchAllViews } = require('./hhs-ocr-fetch');
 
-// Grid carrying both the CSV exporter and an Archive view toggle.
-const GRID_WITH_TOGGLE = `<html><form id="ocrForm" action="/ocr/breach/breach_report_hip.jsf" enctype="multipart/form-data">
-<a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt23':'ocrForm:j_idt23'},'');return false" id="ocrForm:underInvRptButton">Under Investigation</a>
-<a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt24':'ocrForm:j_idt24'},'');return false" id="ocrForm:archiveRptButton">Archive</a>
+// Grid as the live portal renders it: a PrimeFaces TabView whose second tab is
+// the archive, plus the CSV exporter for the currently active tab.
+const TABBED_GRID = `<html><form id="ocrForm" action="/ocr/breach/breach_report_hip.jsf" enctype="multipart/form-data">
+<ul class="ui-tabs-nav">
+  <li><a href="#ocrForm:j_idt31:underInvTab" tabindex="-1">Under Investigation</a></li>
+  <li><a href="#ocrForm:j_idt31:archiveTab" tabindex="-1">Archive</a></li>
+</ul>
 <a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt400':'ocrForm:j_idt400'},'');return false"><img alt="CSV" src="/i/csv.png"></a>
+<input type="hidden" name="ocrForm:j_idt31_activeIndex" value="0">
 <input type="hidden" name="javax.faces.ViewState" value="VS-GRID"></form></html>`;
+
+// PrimeFaces partial-response returned by a successful tabChange, carrying the
+// archive tab's own exporter and a fresh ViewState.
+const ARCHIVE_PARTIAL =
+  '<?xml version="1.0"?><partial-response><changes>' +
+  '<update id="ocrForm:j_idt31"><![CDATA[<div>' +
+  '<a onclick="mojarra.jsfcljs(document.getElementById(\'ocrForm\'),{\'ocrForm:j_idt500\':\'x\'},\'\')">' +
+  '<img alt="CSV" src="/i/csv.png"></a></div>]]></update>' +
+  '<update id="j_id1:javax.faces.ViewState:0"><![CDATA[VS-ARCHIVE]]></update>' +
+  '</changes></partial-response>';
 
 const ARCHIVE_CSV = 'Name of Covered Entity,State\nOld Clinic,NY\n';
 
-function mockTwoViewPortal() {
+/**
+ * Two-view portal. `archiveWorks` controls whether the tabChange actually
+ * switches views; when false the archive export returns the SAME rows as the
+ * recent view, which is the silent failure the implementation must catch.
+ */
+function mockTabbedPortal({ archiveWorks = true, tabbed = TABBED_GRID } = {}) {
   const calls = [];
   const impl = async (url, opts = {}) => {
     const method = opts.method || 'GET';
     const body = String(opts.body || '');
     calls.push({ url, method, body });
-    if (method === 'GET') return { body: GRID_WITH_TOGGLE, checksum: 'g', retrieved_at: 'T' };
-    if (body.includes('j_idt24')) return { body: GRID_WITH_TOGGLE, checksum: 'a', retrieved_at: 'T' }; // toggled view
-    if (body.includes('j_idt400')) {
-      // Return the archive CSV once the toggle has been pressed at least once.
-      const toggled = calls.some((c) => c.body && c.body.includes('j_idt24'));
-      return { body: toggled ? ARCHIVE_CSV : CSV, checksum: 'c', retrieved_at: 'T' };
+    if (method === 'GET') return { body: tabbed, checksum: 'g', retrieved_at: 'T' };
+    if (body.includes('tabChange') || body.includes('_activeIndex=1')) {
+      return { body: ARCHIVE_PARTIAL, checksum: 'p', retrieved_at: 'T' };
     }
+    if (body.includes('j_idt500')) {
+      return { body: archiveWorks ? ARCHIVE_CSV : CSV, checksum: 'a', retrieved_at: 'T' };
+    }
+    if (body.includes('j_idt400')) return { body: CSV, checksum: 'c', retrieved_at: 'T' };
     return { body: '<html>unexpected</html>', checksum: 'x', retrieved_at: 'T' };
   };
   return { impl, calls };
 }
 
-test('fetches both the under-investigation and archive views', async () => {
-  const { impl } = mockTwoViewPortal();
+test('switches the TabView to reach the archive and exports it', async () => {
+  const { impl } = mockTabbedPortal();
   const views = await fetchAllViews({ fetchImpl: impl });
   assert.equal(views.length, 2);
   assert.equal(views[0].view, 'under_investigation');
   assert.equal(views[0].csv, CSV);
   assert.equal(views[1].view, 'archive');
   assert.equal(views[1].csv, ARCHIVE_CSV);
-  assert.equal(views[1].steps.toggle, 'ocrForm:j_idt24');
+  assert.equal(views[1].steps.tabId, 'ocrForm:j_idt31:archiveTab');
 });
 
-test('archive view is fetched from a fresh grid, not a reused ViewState', async () => {
-  const { impl, calls } = mockTwoViewPortal();
+test('uses the ViewState from the partial-response, not the stale grid token', async () => {
+  const { impl, calls } = mockTabbedPortal();
   await fetchAllViews({ fetchImpl: impl });
-  // At least two GETs of the grid: one per view.
-  assert.ok(calls.filter((c) => c.method === 'GET' && c.url.includes('breach_report_hip')).length >= 2);
+  const exportPost = calls.find((c) => c.body && c.body.includes('j_idt500'));
+  assert.ok(exportPost, 'archive export was never posted');
+  assert.match(exportPost.body, /VS-ARCHIVE/);
+  assert.ok(!exportPost.body.includes('VS-GRID'), 'stale ViewState was reused');
 });
 
-test('refuses to publish a partial record when the Archive toggle is missing', async () => {
-  const noToggle = GRID_WITH_TOGGLE.replace(/<a[^>]*archiveRptButton[\s\S]*?<\/a>/i, '');
-  const impl = async (url, opts = {}) => {
-    const method = opts.method || 'GET';
-    if (method === 'GET') return { body: noToggle, checksum: 'g', retrieved_at: 'T' };
-    return { body: CSV, checksum: 'c', retrieved_at: 'T' };
-  };
+test('rejects an archive export that returns the same rows as the recent view', async () => {
+  // The tab silently failed to change: the export succeeds but the content is
+  // identical. Publishing that as 'archive' would double-count the recent
+  // window and still leave the history missing.
+  const { impl } = mockTabbedPortal({ archiveWorks: false });
   await assert.rejects(
     () => fetchAllViews({ fetchImpl: impl }),
-    /no Archive view toggle[\s\S]*refusing to publish only the last ~24 months/i
+    /byte-identical content to the under-investigation view|could not export distinct archived data/
   );
 });
 
-test('coverage=current downgrades a missing archive to a warning, not a silent pass', async () => {
-  const noToggle = GRID_WITH_TOGGLE.replace(/<a[^>]*archiveRptButton[\s\S]*?<\/a>/i, '');
-  const impl = async (url, opts = {}) => {
-    const method = opts.method || 'GET';
-    if (method === 'GET') return { body: noToggle, checksum: 'g', retrieved_at: 'T' };
-    return { body: CSV, checksum: 'c', retrieved_at: 'T' };
-  };
+test('fails loudly when the grid carries no Archive tab', async () => {
+  const noTab = TABBED_GRID.replace(/<li><a href="#ocrForm:j_idt31:archiveTab[\s\S]*?<\/li>/, '');
+  const { impl } = mockTabbedPortal({ tabbed: noTab });
+  await assert.rejects(
+    () => fetchAllViews({ fetchImpl: impl }),
+    /could not locate the Archive tab[\s\S]*Refusing to publish/
+  );
+});
+
+test('coverage=current downgrades a missing archive tab to a warning', async () => {
+  const noTab = TABBED_GRID.replace(/<li><a href="#ocrForm:j_idt31:archiveTab[\s\S]*?<\/li>/, '');
+  const { impl } = mockTabbedPortal({ tabbed: noTab });
   const views = await fetchAllViews({ fetchImpl: impl, requireArchive: false });
-  // The recent view is still returned, and the archive is simply absent —
-  // never fabricated, never silently counted as captured.
   assert.equal(views.length, 1);
   assert.equal(views[0].view, 'under_investigation');
 });

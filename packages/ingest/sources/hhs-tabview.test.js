@@ -1,0 +1,97 @@
+const test = require('node:test');
+const assert = require('node:assert');
+const tv = require('./hhs-tabview');
+
+// Markup mirroring what the live portal actually returns.
+const GRID = `<html><form id="ocrForm">
+<ul class="ui-tabs-nav">
+  <li><a href="#ocrForm:j_idt31:underInvTab" tabindex="-1">Under Investigation</a></li>
+  <li><a href="#ocrForm:j_idt31:archiveTab" tabindex="-1">Archive</a></li>
+</ul>
+<div id="ocrForm:j_idt31:archiveTab" class="ui-tabs-panel ui-widget-content ui-corner-bottom ui-helper-hidden" role="tabpanel"></div>
+<script>function doArchiveButtonClicked() { setTimeout( "PF('archiveRptButton').jq.click()", 100); }</script>
+<input type="hidden" name="headerNavigation" value="">
+<input type="hidden" name="ocrForm:j_idt31_activeIndex" value="0">
+<input type="hidden" name="ocrForm:reportResultTable_rowExpansionState" value="">
+<input type="hidden" name="javax.faces.ViewState" value="VS-ORIGINAL">
+</form></html>`;
+
+const HIDDEN = {
+  headerNavigation: '',
+  'ocrForm:j_idt31_activeIndex': '0',
+  'ocrForm:reportResultTable_rowExpansionState': '',
+  'javax.faces.ViewState': 'VS-ORIGINAL',
+};
+
+test('locates the TabView from its activeIndex hidden field', () => {
+  const tab = tv.findTabView(HIDDEN);
+  assert.equal(tab.id, 'ocrForm:j_idt31');
+  assert.equal(tab.field, 'ocrForm:j_idt31_activeIndex');
+  assert.equal(tab.activeIndex, '0');
+});
+
+test('returns null when the page has no TabView', () => {
+  assert.equal(tv.findTabView({ 'javax.faces.ViewState': 'x' }), null);
+});
+
+test('finds the archive tab id by its anchor label', () => {
+  assert.equal(tv.findTabId(GRID, /archive/i), 'ocrForm:j_idt31:archiveTab');
+  assert.equal(tv.findTabId(GRID, /under investigation/i), 'ocrForm:j_idt31:underInvTab');
+  assert.equal(tv.findTabId(GRID, /nonexistent/i), null);
+});
+
+test('tabChange body carries the new index and the PrimeFaces ajax params', () => {
+  const fields = tv.buildTabChangeFields(HIDDEN, tv.findTabView(HIDDEN), 1, 'ocrForm:j_idt31:archiveTab');
+  assert.equal(fields['ocrForm:j_idt31_activeIndex'], '1');
+  assert.equal(fields['ocrForm:j_idt31_tabindex'], '1');
+  assert.equal(fields['ocrForm:j_idt31_newTab'], 'ocrForm:j_idt31:archiveTab');
+  assert.equal(fields['javax.faces.source'], 'ocrForm:j_idt31');
+  assert.equal(fields['javax.faces.behavior.event'], 'tabChange');
+  assert.equal(fields['javax.faces.partial.ajax'], 'true');
+  // The original ViewState must still travel with it.
+  assert.equal(fields['javax.faces.ViewState'], 'VS-ORIGINAL');
+});
+
+test('plain postback variant sets the index without the ajax params', () => {
+  const fields = tv.buildTabPostbackFields(HIDDEN, tv.findTabView(HIDDEN), 1);
+  assert.equal(fields['ocrForm:j_idt31_activeIndex'], '1');
+  assert.equal(fields.ocrForm, 'ocrForm');
+  assert.ok(!('javax.faces.partial.ajax' in fields));
+});
+
+test('extracts HTML and a fresh ViewState from a partial-response', () => {
+  const xml =
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<partial-response><changes>' +
+    '<update id="ocrForm:j_idt31"><![CDATA[<div><a onclick="mojarra.jsfcljs(x,{\'ocrForm:j_idt500\':\'1\'},\'\')">' +
+    '<img alt="CSV" src="/i/csv.png"></a></div>]]></update>' +
+    '<update id="j_id1:javax.faces.ViewState:0"><![CDATA[VS-AFTER-TAB-CHANGE]]></update>' +
+    '</changes></partial-response>';
+  const { html, viewState, isPartial } = tv.extractPartialResponse(xml);
+  assert.equal(isPartial, true);
+  assert.equal(viewState, 'VS-AFTER-TAB-CHANGE');
+  assert.match(html, /alt="CSV"/);
+  // The ViewState update must NOT be concatenated into the renderable html.
+  assert.ok(!html.includes('VS-AFTER-TAB-CHANGE'));
+});
+
+test('a plain HTML response passes through untouched', () => {
+  const { html, viewState, isPartial } = tv.extractPartialResponse(GRID);
+  assert.equal(isPartial, false);
+  assert.equal(viewState, null);
+  assert.equal(html, GRID);
+});
+
+test('merged ViewState replaces the stale token', () => {
+  const merged = tv.mergeViewState(HIDDEN, 'VS-NEW');
+  assert.equal(merged['javax.faces.ViewState'], 'VS-NEW');
+  assert.equal(merged.headerNavigation, '');
+  // Jakarta spelling is honoured when that is what the page used.
+  const jakarta = tv.mergeViewState({ 'jakarta.faces.ViewState': 'old' }, 'VS-NEW');
+  assert.equal(jakarta['jakarta.faces.ViewState'], 'VS-NEW');
+  assert.ok(!('javax.faces.ViewState' in jakarta));
+});
+
+test('missing ViewState leaves the field set unchanged', () => {
+  assert.deepEqual(tv.mergeViewState(HIDDEN, null), HIDDEN);
+});
