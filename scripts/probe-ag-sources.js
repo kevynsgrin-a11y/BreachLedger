@@ -29,6 +29,20 @@ const SOURCES = [
   { id: 'wa_ag', url: 'https://www.atg.wa.gov/data-breach-notifications' },
 ];
 
+// Round 1 found the Maine endpoint documented on /sources returns 404. These
+// are the plausible current addresses. Probing them is cheaper and far more
+// definitive than reasoning about how the site was reorganised, and a state
+// government host at one request per second is well within polite use.
+const MAINE_CANDIDATES = [
+  'https://apps.web.maine.gov/online/aeviewer/ME/40/list.shtml',
+  'https://www.maine.gov/ag/consumer/identity_theft.shtml',
+  'https://www.maine.gov/ag/consumer/identity_theft/index.shtml',
+  'https://www.maine.gov/ag/consumer/identity_theft/breach_notices.shtml',
+  'https://www.maine.gov/ag/consumer/',
+  'https://www.maine.gov/ag/consumer/index.shtml',
+  'https://apps.web.maine.gov/online/aeviewer/ME/40/list.html',
+];
+
 // Paths worth trying for a machine-readable listing. A structured feed would
 // remove the entire HTML-parsing risk surface, so it is worth eight requests to
 // find out. Each is tried relative to the source's own origin.
@@ -75,13 +89,20 @@ function tables(html) {
     const rows = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
     const sample = rows
       .slice(0, 4)
-      .map((r) => [...r[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => textOf(c[1]).slice(0, 70)));
+      .map((r) => [...r[1].matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => textOf(c[1]).slice(0, 90)));
+    // Where each row LEADS matters as much as what it says: the notification
+    // letter and any per-breach detail page hang off a cell link, and a global
+    // link list hides them among the site chrome.
+    const rowLinks = rows
+      .slice(0, 4)
+      .map((r) => [...r[1].matchAll(/<a\b[^>]*href\s*=\s*["']([^"']+)["']/gi)].map((a) => a[1]));
     out.push({
       classAttr: (/\bclass\s*=\s*["']([^"']*)["']/i.exec(attrs) || [])[1] || null,
       id: (/\bid\s*=\s*["']([^"']*)["']/i.exec(attrs) || [])[1] || null,
       headers,
       rowCount: rows.length,
       sample,
+      rowLinks,
     });
   }
   return out;
@@ -195,7 +216,7 @@ async function probe({ id, url }) {
     res = await politeFetch(url, { raw: true });
   } catch (err) {
     console.log(`FETCH FAILED: ${err.message}`);
-    return;
+    return null;
   }
   console.log(`final_url : ${res.final_url}`);
   console.log(`redirected: ${res.redirected}`);
@@ -206,7 +227,11 @@ async function probe({ id, url }) {
   t.forEach((tb, i) => {
     console.log(`  [${i}] id=${tb.id} class=${tb.classAttr} rows=${tb.rowCount}`);
     console.log(`      headers: ${JSON.stringify(tb.headers)}`);
-    tb.sample.forEach((row, j) => console.log(`      row${j}: ${JSON.stringify(row)}`));
+    tb.sample.forEach((row, j) => {
+      console.log(`      row${j}: ${JSON.stringify(row)}`);
+      const lk = (tb.rowLinks && tb.rowLinks[j]) || [];
+      if (lk.length) console.log(`         links: ${JSON.stringify(lk)}`);
+    });
   });
 
   const f = forms(res.body);
@@ -246,6 +271,61 @@ async function probe({ id, url }) {
   );
 
   await probeMachineReadable(id, res.final_url || url);
+  return res.body;
+}
+
+/** Follow the first row's link. CA's list omits data categories and affected
+ *  counts entirely, so if it records them anywhere it is behind this link. */
+async function probeFirstDetail(id, html, baseUrl) {
+  const t = tables(html);
+  const first = t.find((tb) => tb.rowLinks && tb.rowLinks.flat().length);
+  if (!first) { console.log(`\n-- no row-level links to follow --`); return; }
+  const href = first.rowLinks.flat()[0];
+  let url;
+  try { url = new URL(href, baseUrl).toString(); } catch { return; }
+  console.log(`\n-- following the first row into ${url} --`);
+  try {
+    const res = await politeFetch(url, { raw: true });
+    console.log(`  final=${res.final_url} bytes=${res.body.length}`);
+    const dt = tables(res.body);
+    console.log(`  tables: ${dt.length}`);
+    dt.forEach((tb, i) => {
+      console.log(`    [${i}] headers=${JSON.stringify(tb.headers)} rows=${tb.rowCount}`);
+      tb.sample.forEach((r, j) => console.log(`        row${j}: ${JSON.stringify(r)}`));
+    });
+    const dl = [...res.body.matchAll(/<(dt|th|strong|b)\b[^>]*>([\s\S]{0,120}?)<\/\1>/gi)]
+      .map((m) => textOf(m[2])).filter(Boolean).slice(0, 30);
+    console.log(`  labelled fields: ${JSON.stringify(dl)}`);
+    const pdfs = [...res.body.matchAll(/href\s*=\s*["']([^"']*\.pdf[^"']*)["']/gi)].map((m) => m[1]).slice(0, 6);
+    console.log(`  pdf links: ${JSON.stringify(pdfs)}`);
+    console.log(`  visible text (first 700): ${textOf(res.body).slice(0, 700)}`);
+  } catch (err) {
+    console.log(`  detail fetch failed: ${err.message.slice(0, 140)}`);
+  }
+}
+
+async function probeMaineCandidates() {
+  console.log(`\n${'='.repeat(74)}`);
+  console.log('maine_ag — CANDIDATE REDISCOVERY (documented endpoint returned 404)');
+  console.log('='.repeat(74));
+  for (const url of MAINE_CANDIDATES) {
+    try {
+      const res = await politeFetch(url, { raw: true });
+      const t = tables(res.body);
+      const biggest = t.sort((a, b) => b.rowCount - a.rowCount)[0];
+      console.log(
+        `  OK ${url}\n     final=${res.final_url} bytes=${res.body.length} tables=${t.length} ` +
+          `biggestRows=${biggest ? biggest.rowCount : 0}`
+      );
+      if (biggest && biggest.rowCount > 3) {
+        console.log(`     headers: ${JSON.stringify(biggest.headers)}`);
+        biggest.sample.forEach((r, j) => console.log(`     row${j}: ${JSON.stringify(r)}`));
+        (biggest.rowLinks || []).forEach((lk, j) => lk.length && console.log(`     row${j} links: ${JSON.stringify(lk)}`));
+      }
+    } catch (err) {
+      console.log(`  -- ${url}: ${err.message.replace(/\s+/g, ' ').slice(0, 100)}`);
+    }
+  }
 }
 
 async function main() {
@@ -253,8 +333,10 @@ async function main() {
   const only = process.argv[2];
   for (const s of SOURCES) {
     if (only && s.id !== only) continue;
-    await probe(s);
+    const body = await probe(s);
+    if (body) await probeFirstDetail(s.id, body, s.url);
   }
+  if (!only || only === 'maine_ag') await probeMaineCandidates();
 }
 
 main().catch((err) => {
