@@ -20,7 +20,8 @@ const TEMPLATES = path.join(ROOT, config.paths.templates);
 
 // Human-readable attribution for each source type, shown in citation blocks.
 const SOURCE_LABELS = {
-  hhs_ocr: 'U.S. Department of Health and Human Services, Office for Civil Rights breach portal',
+  hhs_ocr: 'U.S. Department of Health and Human Services, Office for Civil Rights breach portal (HIPAA)',
+  hhs_part2: 'U.S. Department of Health and Human Services, Office for Civil Rights breach portal (42 CFR Part 2)',
   maine_ag: 'Maine Attorney General breach notifications',
   ca_ag: 'California Attorney General breach list',
   wa_ag: 'Washington Attorney General breach notifications',
@@ -194,6 +195,36 @@ function main() {
     config.routes.some((r) => r.path === routePath && r.phase <= config.buildPhase)
       ? require(path.join(TEMPLATES, `${template}.js`))
       : null;
+
+  // A slug is a permanent public URL, and writePage overwrites silently. Two
+  // records sharing a slug would publish one and vanish the other with no
+  // signal at all, so it fails the build instead.
+  const slugSeen = new Map();
+  for (const b of published) {
+    if (slugSeen.has(b.slug)) {
+      throw new Error(
+        `build guard failed: two records claim /breach/${b.slug} — ${slugSeen.get(b.slug)} and ${b.id}. ` +
+          'Publishing would silently overwrite one with the other.'
+      );
+    }
+    slugSeen.set(b.slug, b.id);
+  }
+
+  // Coverage honesty (spec section 8). /sources is where this project states
+  // what it does and does not hold, so it must never say a source is not
+  // ingested while that source's records are being published beside it.
+  const publishedSourceTypes = new Set();
+  for (const list of sourcesByBreach.values()) for (const s of list) publishedSourceTypes.add(s.source_type);
+  for (const type of publishedSourceTypes) {
+    const row = ctx.docs.sources.split('\n').find((l) => l.includes(`\`${type}\``) && l.startsWith('|'));
+    if (row && /not ingested|not yet implemented/i.test(row)) {
+      throw new Error(
+        `build guard failed: docs/SOURCES.md still lists '${type}' as not ingested, but ` +
+          `${[...sourcesByBreach.values()].flat().filter((s) => s.source_type === type).length} published ` +
+          'record(s) cite it. Update the source registry before shipping.'
+      );
+    }
+  }
 
   const breachTpl = dynamic('/breach/[slug]', 'breach-detail');
   if (breachTpl) {

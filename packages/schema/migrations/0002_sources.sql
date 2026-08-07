@@ -5,7 +5,7 @@
 CREATE TABLE sources (
   id              TEXT PRIMARY KEY,
   breach_id       TEXT NOT NULL REFERENCES breaches(id),
-  source_type     TEXT NOT NULL,   -- hhs_ocr|maine_ag|ca_ag|wa_ag|tx_ag|sec_8k|courtlistener
+  source_type     TEXT NOT NULL,   -- hhs_ocr|hhs_part2|maine_ag|ca_ag|wa_ag|tx_ag|sec_8k|courtlistener
   source_url      TEXT NOT NULL,
   document_url    TEXT,            -- direct link to notification letter / filing
   r2_archive_key  TEXT,

@@ -1,12 +1,24 @@
 const test = require('node:test');
 const assert = require('node:assert');
-const { fetchBreachCsv, CookieJar } = require('./hhs-ocr-fetch');
+const { fetchBreachCsv, fetchAllViews, dataRowsOf, CookieJar, GRID_PAGE, PART2_GRID_PAGE } = require('./hhs-ocr-fetch');
 
 const FRONT = `<html><form id="ocrForm" action="/ocr/breach/breach_report.jsf;jsessionid=ABC" enctype="multipart/form-data">
 <a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt39':'ocrForm:j_idt39'},'');return false">View HIPAA Breach Reports</a>
 <input type="hidden" name="javax.faces.ViewState" value="VS1"></form></html>`;
 
+// The grid carries its own column headings, which is how the page identifies
+// which report it is. The real HIPAA grid renders "Name of Covered Entity";
+// the real Part 2 grid renders "Name of Part 2 Program" and never mentions a
+// covered entity at all. The fetcher checks for exactly that, so the fixtures
+// have to carry it too.
 const GRID = `<html><form id="ocrForm" action="/ocr/breach/breach_report_hip.jsf" enctype="multipart/form-data">
+<span class="ui-column-title">Name of Covered Entity</span>
+<a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt384':'ocrForm:j_idt384'},'');return false"><img alt="CSV" src="/i/csv.png"></a>
+<input type="hidden" name="javax.faces.ViewState" value="VS2"></form></html>`;
+
+const PART2_GRID = `<html><form id="ocrForm" action="/ocr/breach/breach_report_part2.jsf" enctype="multipart/form-data">
+<h2>Part 2 Cases Currently Under Investigation</h2>
+<span class="ui-column-title">Name of Part 2 Program</span>
 <a href="#" onclick="mojarra.jsfcljs(document.getElementById('ocrForm'),{'ocrForm:j_idt384':'ocrForm:j_idt384'},'');return false"><img alt="CSV" src="/i/csv.png"></a>
 <input type="hidden" name="javax.faces.ViewState" value="VS2"></form></html>`;
 
@@ -35,7 +47,10 @@ function mockPortal({
     calls.push({ url, method, enc, body: opts.body });
 
     if (method === 'GET') {
-      return { body: url.includes('breach_report_hip.jsf') ? directGrid : frontBody, checksum: 'c0', retrieved_at: 'T' };
+      // Either report's grid address serves `directGrid`; anything else is the
+      // front page. Both listings are the same application at two addresses.
+      const isGrid = url.includes('breach_report_hip.jsf') || url.includes('breach_report_part2.jsf');
+      return { body: isGrid ? directGrid : frontBody, checksum: 'c0', retrieved_at: 'T' };
     }
     if (enc !== acceptEncoding) return { body: RERENDER, checksum: 'x', retrieved_at: 'T' };
     // A navigation postback returns the grid; an export postback returns CSV.
@@ -85,7 +100,7 @@ test('a 200-with-HTML re-render is treated as failure, never as success', async 
 });
 
 test('falls back to front-page navigation when the direct grid has no exporter', async () => {
-  const { impl, calls } = mockPortal({ directGrid: '<html><body>chrome only</body></html>' });
+  const { impl, calls } = mockPortal({ directGrid: '<html><body>Covered Entity chrome only, no exporter</body></html>' });
   const { csv, steps } = await fetchBreachCsv({ fetchImpl: impl });
   assert.equal(csv, CSV);
   assert.match(steps.path, /^front-nav/);
@@ -114,7 +129,7 @@ test('multipart body carries the ViewState and the command id', async () => {
 });
 
 test('error message enumerates every attempt for diagnosis', async () => {
-  const { impl } = mockPortal({ acceptEncoding: 'none', directGrid: '<html>x</html>', frontBody: '<html>y</html>' });
+  const { impl } = mockPortal({ acceptEncoding: 'none', directGrid: '<html>Covered Entity x</html>', frontBody: '<html>y</html>' });
   await assert.rejects(
     () => fetchBreachCsv({ fetchImpl: impl }),
     (err) => {
@@ -134,11 +149,11 @@ test('cookie jar absorbs and replays Set-Cookie', () => {
   assert.ok(!header.includes('HttpOnly'));
 });
 
-const { fetchAllViews } = require('./hhs-ocr-fetch');
 
 // Grid as the live portal renders it: a PrimeFaces TabView whose second tab is
 // the archive, plus the CSV exporter for the currently active tab.
 const TABBED_GRID = `<html><form id="ocrForm" action="/ocr/breach/breach_report_hip.jsf" enctype="multipart/form-data">
+<span class="ui-column-title">Name of Covered Entity</span>
 <ul class="ui-tabs-nav">
   <li><a href="#ocrForm:j_idt31:underInvTab" tabindex="-1">Under Investigation</a></li>
   <li><a href="#ocrForm:j_idt31:archiveTab" tabindex="-1">Archive</a></li>
@@ -229,4 +244,97 @@ test('coverage=current downgrades a missing archive tab to a warning', async () 
   const views = await fetchAllViews({ fetchImpl: impl, requireArchive: false });
   assert.equal(views.length, 1);
   assert.equal(views[0].view, 'under_investigation');
+});
+
+// --- Report identity -------------------------------------------------------
+// OCR runs two breach listings in one application. The failure that matters is
+// not a 404 -- politeFetch already throws on those -- it is being handed the
+// OTHER report's data and publishing it under this one's regime.
+
+test('refuses a grid that does not identify itself as the report we asked for', async () => {
+  const { impl } = mockPortal({ directGrid: PART2_GRID, navGrid: PART2_GRID, frontBody: '<html>x</html>' });
+  await assert.rejects(
+    () => fetchBreachCsv({ fetchImpl: impl, gridPage: GRID_PAGE }),
+    /does not identify itself as the expected report/
+  );
+});
+
+test('refuses the HIPAA grid served at the Part 2 address', async () => {
+  // The exact contamination the front page was observed to cause: a Part 2
+  // request answered with HIPAA content. Publishing that would label ~7,760
+  // HIPAA breaches as substance use disorder treatment records.
+  const impl = async () => ({ body: GRID, checksum: 'c', retrieved_at: 'T' });
+  await assert.rejects(
+    () => fetchBreachCsv({ fetchImpl: impl, gridPage: PART2_GRID_PAGE, label: 'hhs_part2' }),
+    /hhs_part2:.*does not identify itself as the expected report/
+  );
+});
+
+test('refuses a response that came from a different path than the one requested', async () => {
+  const impl = async () => ({
+    body: GRID,
+    checksum: 'c',
+    retrieved_at: 'T',
+    final_url: 'https://ocrportal.hhs.gov/ocr/breach/wizard_breach_hip.jsf',
+    redirected: true,
+  });
+  await assert.rejects(
+    () => fetchBreachCsv({ fetchImpl: impl, gridPage: PART2_GRID_PAGE, label: 'hhs_part2' }),
+    /requested .*breach_report_part2\.jsf but the response came from .*wizard_breach_hip\.jsf/
+  );
+});
+
+test('accepts the Part 2 grid at the Part 2 address', async () => {
+  const { impl } = mockPortal({ directGrid: PART2_GRID, csvBody: 'Name of Part 2 Program,State\nX,OR\n' });
+  const { csv } = await fetchBreachCsv({ fetchImpl: impl, gridPage: PART2_GRID_PAGE, label: 'hhs_part2' });
+  assert.match(csv, /Name of Part 2 Program/);
+});
+
+test('a Part 2 run never requests the HIPAA grid or the front page', async () => {
+  const seen = [];
+  const { impl } = mockPortal({ directGrid: PART2_GRID });
+  const wrapped = async (url, opts) => { seen.push(url); return impl(url, opts); };
+  await fetchBreachCsv({ fetchImpl: wrapped, gridPage: PART2_GRID_PAGE, label: 'hhs_part2' });
+  assert.ok(!seen.some((u) => u.includes('breach_report_hip.jsf')), `requested the HIPAA grid: ${seen}`);
+  assert.ok(!seen.some((u) => u.includes('breach_report.jsf')), `fell through to the front page: ${seen}`);
+});
+
+// --- The archive guard compares data, not bytes ----------------------------
+
+test('dataRowsOf ignores the header, which carries volatile JSF object identity', () => {
+  // Two exports of the same (empty) table, seconds apart, on the live Part 2
+  // report. Byte-different, data-identical. A raw byte comparison passes here
+  // and would wave through an archive export that never changed views.
+  const a = '"javax.faces.component.UIPanel@3c159259","State"\n';
+  const b = '"javax.faces.component.UIPanel@68d89e44","State"\n';
+  assert.notEqual(a, b);
+  assert.equal(dataRowsOf(a), dataRowsOf(b));
+});
+
+test('does not mistake two legitimately empty views for a failed tab switch', async () => {
+  // The live Part 2 listing: no records in either view. Identical data rows is
+  // the correct outcome here, not evidence the tab failed to change.
+  const EMPTY = '"javax.faces.component.UIPanel@aaa","State"\n';
+  const EMPTY2 = '"javax.faces.component.UIPanel@bbb","State"\n';
+  const grid = TABBED_GRID.replace(
+    '<ul class="ui-tabs-nav">',
+    '<tr class="ui-datatable-empty-message"><td>No records found.</td></tr><ul class="ui-tabs-nav">'
+  );
+  let exports = 0;
+  const impl = async (url, opts = {}) => {
+    const body = String(opts.body || '');
+    if ((opts.method || 'GET') === 'GET') return { body: grid, checksum: 'g', retrieved_at: 'T' };
+    if (body.includes('tabChange') || body.includes('_activeIndex=1')) {
+      return { body: ARCHIVE_PARTIAL, checksum: 'p', retrieved_at: 'T' };
+    }
+    return { body: exports++ === 0 ? EMPTY : EMPTY2, checksum: `c${exports}`, retrieved_at: 'T' };
+  };
+  const views = await fetchAllViews({ fetchImpl: impl, gridPage: GRID_PAGE });
+  assert.equal(views.length, 2, 'the archive view should be accepted, not rejected');
+  assert.equal(views[1].view, 'archive');
+});
+
+test('still rejects a failed tab switch when the views actually hold rows', async () => {
+  const { impl } = mockTabbedPortal({ archiveWorks: false });
+  await assert.rejects(() => fetchAllViews({ fetchImpl: impl }), /could not export distinct archived data/);
 });

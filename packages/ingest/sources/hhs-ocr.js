@@ -74,6 +74,20 @@ const VECTOR_MAP = {
   unknown: 'unknown',
 };
 
+// Which CSV column carries each fact. OCR's two breach listings are the same
+// application over different regimes, so they share this shape but not these
+// names: the Part 2 export calls the filer a "Name of Part 2 Program", has no
+// entity-type column at all, and names a "Qualified Service Organization"
+// where HIPAA names a "Business Associate". Reading by an explicit map keeps a
+// column rename upstream a loud failure rather than a column of nulls.
+const HIPAA_FIELDS = {
+  entityName: 'Name of Covered Entity',
+  entityType: 'Covered Entity Type',
+  // The Part 2 analogue of a business associate. Different legal instrument,
+  // different name; recorded as provenance, asserted as nothing.
+  associatePresent: 'Business Associate Present',
+};
+
 const ENTITY_TYPES = new Set([
   'healthcare provider',
   'health plan',
@@ -153,10 +167,18 @@ function deriveDataClasses() {
   return ['medical'];
 }
 
-function stableId(entityNormalized, notificationDate) {
+/**
+ * A deterministic id for a filing.
+ *
+ * `namespace` separates filings made under different rules. OCR runs two
+ * breach listings — HIPAA and 42 CFR Part 2 — and one organization can appear
+ * in both for genuinely different filings. Those must not collapse into one
+ * record, so the namespace is part of the hashed input.
+ */
+function stableId(entityNormalized, notificationDate, namespace = SOURCE_TYPE) {
   const h = crypto
     .createHash('sha256')
-    .update(`${SOURCE_TYPE}|${entityNormalized}|${notificationDate || ''}`)
+    .update(`${namespace}|${entityNormalized}|${notificationDate || ''}`)
     .digest('hex');
   // Format as a UUID-shaped string so the id column stays visually consistent.
   return [h.slice(0, 8), h.slice(8, 12), h.slice(12, 16), h.slice(16, 20), h.slice(20, 32)].join('-');
@@ -172,15 +194,24 @@ const JSF_COMPONENT_HEADER = /^(?:javax|jakarta)\.faces\.component\.[A-Za-z.]+@[
 /**
  * Repair the header row of a live export.
  *
- * Columns 1 ("Name of Covered Entity") and 8 ("Business Associate Present")
- * arrive as serialized component objects. Their positions are stable and the
- * full column layout is documented, so the names can be restored — but only
- * under a strict guard: every other header must already match the expected
- * name at its expected index. If the layout differs in any way, this returns
- * the text untouched so the parser's own schema check fails loudly rather than
- * this function papering over a genuine upstream change.
+ * On the HIPAA export, columns 1 ("Name of Covered Entity") and 8 ("Business
+ * Associate Present") arrive as serialized component objects; on the Part 2
+ * export it is columns 1 ("Name of Part 2 Program") and 7 ("Qualified Service
+ * Organization Present"). In both cases the real name was read off the
+ * rendered grid, where the header facet is ordinary markup — never guessed,
+ * because these names go into sources.raw_payload, the archived provenance for
+ * every record.
+ *
+ * `columns` must therefore be the column list for the source being parsed.
+ * Repairing a Part 2 export against the HIPAA layout would silently relabel
+ * a Part 2 program as a HIPAA covered entity.
+ *
+ * The repair runs only under a strict guard: every other header must already
+ * match the expected name at its expected index. If the layout differs in any
+ * way, this returns the text untouched so the parser's own schema check fails
+ * loudly rather than this function papering over a genuine upstream change.
  */
-function repairHeaderRow(text) {
+function repairHeaderRow(text, columns = ALL_COLUMNS) {
   const s = String(text);
   const nl = s.indexOf('\n');
   if (nl === -1) return s;
@@ -194,7 +225,7 @@ function repairHeaderRow(text) {
   } catch {
     return s;
   }
-  if (!headers || headers.length !== ALL_COLUMNS.length) return s;
+  if (!headers || headers.length !== columns.length) return s;
 
   const broken = [];
   for (let i = 0; i < headers.length; i++) {
@@ -202,11 +233,11 @@ function repairHeaderRow(text) {
     if (JSF_COMPONENT_HEADER.test(got)) { broken.push(i); continue; }
     // Any non-broken header that does not match the documented layout means
     // this is not the known defect — leave it alone.
-    if (got !== ALL_COLUMNS[i]) return s;
+    if (got !== columns[i]) return s;
   }
   if (!broken.length) return s;
 
-  const repaired = headers.map((h, i) => (broken.includes(i) ? ALL_COLUMNS[i] : h.trim()));
+  const repaired = headers.map((h, i) => (broken.includes(i) ? columns[i] : h.trim()));
   const quoted = repaired.map((h) => `"${h.replace(/"/g, '""')}"`).join(',');
   return `${quoted}\n${rest}`;
 }
@@ -236,15 +267,27 @@ function parseCount(value) {
  *    presenting it as such would be a misrepresentation.
  *  - remediation_offered: HHS does not collect it. Absent, not "none offered".
  */
-function normalizeRow(row, { retrievedAt, checksum, sourceUrl = PORTAL_URL, unknownVectorTokens } = {}) {
+function normalizeRow(row, {
+  retrievedAt,
+  checksum,
+  sourceUrl = PORTAL_URL,
+  unknownVectorTokens,
+  fields = HIPAA_FIELDS,
+  sourceType = SOURCE_TYPE,
+  idNamespace = SOURCE_TYPE,
+  slugNamespace = null,
+} = {}) {
   const { normalizeEntityName } = require('../entity-resolve');
 
-  const entityName = String(row['Name of Covered Entity'] || '').trim();
+  const entityName = String(row[fields.entityName] || '').trim();
   const notificationDate = toIsoDate(row['Breach Submission Date']);
   const normalized = normalizeEntityName(entityName);
 
   const record = {
-    id: stableId(normalized, notificationDate),
+    id: stableId(normalized, notificationDate, idNamespace),
+    // Namespaces the public URL when one organization files under two rules.
+    // Dropped before the write; d1-writer builds from an explicit column list.
+    slug_namespace: slugNamespace,
     entity_name: entityName,
     entity_name_normalized: normalized,
     entity_aliases: null,
@@ -265,10 +308,13 @@ function normalizeRow(row, { retrievedAt, checksum, sourceUrl = PORTAL_URL, unkn
     // Retained for provenance and for later cross-source reconciliation.
     _hhs: {
       state: String(row['State'] || '').trim() || null,
-      entity_type: String(row['Covered Entity Type'] || '').trim() || null,
+      entity_type: fields.entityType ? String(row[fields.entityType] || '').trim() || null : null,
       location: String(row['Location of Breached Information'] || '').trim() || null,
       locations: splitMulti(row['Location of Breached Information']),
-      business_associate_present: String(row['Business Associate Present'] || '').trim() || null,
+      // Stored under the source's own column name, so a Part 2 filing is never
+      // recorded as having reported a HIPAA business associate.
+      associate_present_column: fields.associatePresent,
+      associate_present: String(row[fields.associatePresent] || '').trim() || null,
       // OCR's own post-investigation narrative. Empty on under-investigation
       // rows, present on most archived ones. It is the government's account in
       // the government's words, so it can be quoted directly.
@@ -277,7 +323,7 @@ function normalizeRow(row, { retrievedAt, checksum, sourceUrl = PORTAL_URL, unkn
   };
 
   const source = {
-    source_type: SOURCE_TYPE,
+    source_type: sourceType,
     source_url: sourceUrl,
     document_url: null,
     r2_archive_key: null,
@@ -299,6 +345,7 @@ module.exports = {
   REQUIRED_COLUMNS,
   VECTOR_MAP,
   ENTITY_TYPES,
+  HIPAA_FIELDS,
   phase: 1,
   toIsoDate,
   splitMulti,

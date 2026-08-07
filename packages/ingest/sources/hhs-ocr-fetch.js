@@ -22,7 +22,75 @@ const tv = require('./hhs-tabview');
 const BASE = 'https://ocrportal.hhs.gov/ocr/breach/';
 const FRONT_PAGE = `${BASE}breach_report.jsf`;
 const GRID_PAGE = `${BASE}breach_report_hip.jsf`;
+// The 42 CFR Part 2 report is a structurally identical grid at its own address:
+// same PrimeFaces datatable, same four exporters, same TabView archive.
+//
+// Found by probing candidate addresses directly: a plain GET returns the grid
+// on the first try, and the seven sibling spellings all 404, so the name is
+// confirmed uniquely. It was NOT confirmed via the front page's navigation --
+// that command was observed landing on wizard_breach_hip.jsf, a HIPAA page, on
+// one run and on the Part 2 grid on another. Its destination is not
+// deterministic, which is exactly why the front-page fallback below is gated to
+// the HIPAA grid and why this file now checks what it actually received.
+const PART2_GRID_PAGE = `${BASE}breach_report_part2.jsf`;
 const GRID_LABEL = 'View HIPAA Breach Reports';
+
+// Text that must appear on each grid for it to be the grid we asked for.
+// A non-deterministic postback or a future redirect could hand us the other
+// regime's page; without a positive check, a Part 2 run that landed on the
+// HIPAA grid would export ~7,760 HIPAA breaches and publish every one of them
+// as a substance use disorder treatment record.
+const GRID_IDENTITY = {
+  [GRID_PAGE]: /Covered Entity|HIPAA/i,
+  [PART2_GRID_PAGE]: /42 CFR Part 2|Part 2 Program|Part 2 Cases/i,
+};
+
+/**
+ * Assert that a fetched page is the page we asked for.
+ *
+ * politeFetch reports final_url and redirected precisely so callers can catch
+ * URL rot, and until now no caller read either. A 404 already throws; this
+ * catches the quieter failures -- a redirect to another report, or a server
+ * that renders a different view at the same address.
+ */
+function assertGridIdentity(gridPage, res, label) {
+  const wantPath = new URL(gridPage).pathname;
+  const gotPath = new URL(res.final_url || gridPage).pathname;
+  if (gotPath !== wantPath) {
+    throw new Error(
+      `${label}: requested ${gridPage} but the response came from ${res.final_url} ` +
+        `(redirected=${res.redirected}). Refusing to ingest one report's data as another's.`
+    );
+  }
+  const expect = GRID_IDENTITY[gridPage];
+  if (expect && !expect.test(res.body)) {
+    throw new Error(
+      `${label}: the page at ${gridPage} does not identify itself as the expected report ` +
+        `(no match for ${expect}). Refusing to ingest a report we cannot confirm the identity of.`
+    );
+  }
+}
+
+/**
+ * Does the grid itself say it holds no records?
+ *
+ * A zero-row export is ambiguous on its face: it is either a listing that is
+ * genuinely empty, or a retrieval that broke. The portal distinguishes them --
+ * an empty datatable renders "No records found." and a paginator reading
+ * "(Displaying 0 - 0 of 0)" -- so the distinction is read off the page rather
+ * than assumed from the row count.
+ */
+function gridReportsEmpty(html) {
+  return /ui-datatable-empty-message/i.test(html) || /Displaying\s*0\s*-\s*0\s*of\s*0/i.test(html);
+}
+
+/** The export minus its header row. The header carries volatile JSF object
+ *  identity ("UIPanel@3c159259"), which differs between two responses even
+ *  when the data is identical -- so only the data may be compared. */
+function dataRowsOf(csv) {
+  const nl = String(csv).indexOf('\n');
+  return nl === -1 ? '' : String(csv).slice(nl + 1);
+}
 
 class CookieJar {
   constructor() { this.cookies = new Map(); }
@@ -89,18 +157,20 @@ async function exportFromPage({ fetchImpl, jar, pageUrl, pageBody, attempts, pat
   return { csv: got.res, commandId, encoding: got.encoding, path: pathName };
 }
 
-async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
+async function fetchBreachCsv({ fetchImpl = politeFetch, gridPage = GRID_PAGE, label = 'hhs_ocr' } = {}) {
   const jar = new CookieJar();
   const attempts = [];
 
   // --- Primary: the data grid, fetched directly --------------------------
-  const direct = await fetchImpl(GRID_PAGE, { raw: true, jar });
+  const direct = await fetchImpl(gridPage, { raw: true, jar });
+  assertGridIdentity(gridPage, direct, label);
   let result = await exportFromPage({
-    fetchImpl, jar, pageUrl: GRID_PAGE, pageBody: direct.body, attempts, pathName: 'direct-grid',
+    fetchImpl, jar, pageUrl: gridPage, pageBody: direct.body, attempts, pathName: 'direct-grid',
   });
 
   // --- Fallback: navigate from the front page ----------------------------
-  if (!result) {
+  // Only meaningful for the HIPAA grid; the Part 2 grid is reached directly.
+  if (!result && gridPage === GRID_PAGE) {
     const front = await fetchImpl(FRONT_PAGE, { raw: true, jar });
     const frontHidden = jsf.extractHiddenInputs(front.body);
     const gridCommand = jsf.findCommandByLabel(front.body, GRID_LABEL);
@@ -137,7 +207,7 @@ async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
   if (!result) {
     const diag = jsf.exportDiagnostics(direct.body);
     throw new Error(
-      'hhs_ocr: could not obtain the CSV export by any path or encoding. Refusing to publish a ' +
+      `${label}: could not obtain the CSV export by any path or encoding. Refusing to publish a ` +
         'partial or wrong-format record set.\n' +
         attempts.map((a) => `  - ${a}`).join('\n') +
         `\n  markup mentioning csv/export on the direct grid (${diag.length}):\n` +
@@ -147,6 +217,9 @@ async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
 
   return {
     csv: result.csv.body,
+    // Whether the GRID said it was empty, recorded from the page we exported
+    // from. A caller can then tell an empty listing from a broken fetch.
+    gridReportsEmpty: gridReportsEmpty(direct.body),
     steps: {
       path: result.path,
       encoding: result.encoding,
@@ -175,30 +248,38 @@ const ARCHIVE_PATTERN = /archive/i;
  *
  * @returns {Array<{view, csv, checksum, retrieved_at, steps}>}
  */
-async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } = {}) {
+async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true, gridPage = GRID_PAGE, label = 'hhs_ocr' } = {}) {
   const views = [];
 
   // View 1: whatever the grid shows by default (Under Investigation).
-  const current = await fetchBreachCsv({ fetchImpl });
-  views.push({ view: 'under_investigation', csv: current.csv, checksum: current.steps.checksum, retrieved_at: current.steps.retrieved_at, steps: current.steps });
+  const current = await fetchBreachCsv({ fetchImpl, gridPage, label });
+  views.push({
+    view: 'under_investigation',
+    csv: current.csv,
+    checksum: current.steps.checksum,
+    retrieved_at: current.steps.retrieved_at,
+    gridReportsEmpty: current.gridReportsEmpty,
+    steps: current.steps,
+  });
 
   // View 2: Archive. It is the second tab of a PrimeFaces TabView, loaded on
   // demand, so it needs a real tabChange postback rather than a command click.
   const jar = new CookieJar();
   const attempts = [];
-  const grid = await fetchImpl(GRID_PAGE, { raw: true, jar });
+  const grid = await fetchImpl(gridPage, { raw: true, jar });
+  assertGridIdentity(gridPage, grid, label);
   // Discovery aid: what other portal pages exist, for locating the archive.
   const linked = jsf.linkedPages(grid.body);
-  if (linked.length) console.error(`hhs_ocr: .jsf pages linked from the grid: ${linked.join(' | ')}`);
+  if (linked.length) console.error(`${label}: .jsf pages linked from the grid: ${linked.join(' | ')}`);
 
   const gridHidden = jsf.extractHiddenInputs(grid.body);
-  const gridAction = new URL(jsf.extractFormAction(grid.body) || GRID_PAGE, GRID_PAGE).toString();
+  const gridAction = new URL(jsf.extractFormAction(grid.body) || gridPage, gridPage).toString();
   const tabView = tv.findTabView(gridHidden);
   const archiveTabId = tv.findTabId(grid.body, ARCHIVE_PATTERN);
 
   if (!tabView || !archiveTabId) {
     const err = new Error(
-      'hhs_ocr: could not locate the Archive tab on the report grid. Refusing to publish only ' +
+      `${label}: could not locate the Archive tab on the report grid. Refusing to publish only ` +
         'the last ~24 months as though it were the complete record.\n' +
         `  tabView=${tabView ? tabView.id : 'none'} archiveTab=${archiveTabId || 'none'}\n` +
         '  JSF commands on the grid:\n' +
@@ -208,11 +289,11 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } 
     );
     err.archiveNotFound = true;
     if (requireArchive) throw err;
-    console.error(`hhs_ocr: WARNING archive view not captured.\n${err.message}`);
+    console.error(`${label}: WARNING archive view not captured.\n${err.message}`);
     return views;
   }
 
-  console.error(`hhs_ocr: switching to archive tab ${archiveTabId} on tabview ${tabView.id}`);
+  console.error(`${label}: switching to archive tab ${archiveTabId} on tabview ${tabView.id}`);
 
   // Two shapes of tab switch, because which one the server accepts is a
   // configuration detail: a PrimeFaces AJAX tabChange, and a plain postback.
@@ -256,27 +337,53 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } 
     // failed, the export returns the SAME under-investigation rows, and
     // publishing them labelled 'archive' would double-count the recent window
     // and still leave the history missing.
-    if (got.res.body === views[0].csv) {
+    //
+    // Compare the DATA, not the raw bytes. The header row carries volatile JSF
+    // object identity, so two exports of identical data are never byte-equal --
+    // a raw comparison here passes on content it should reject. Observed on the
+    // Part 2 report, where both views are currently empty: 208 bytes each,
+    // different hashes, same (zero) rows.
+    const archiveData = dataRowsOf(got.res.body);
+    const bothEmpty = !archiveData.trim() && !dataRowsOf(views[0].csv).trim();
+    if (archiveData === dataRowsOf(views[0].csv) && !bothEmpty) {
       attempts.push(
-        `archive[${variant.name}]: export succeeded but returned byte-identical content to the ` +
+        `archive[${variant.name}]: export succeeded but returned the same data rows as the ` +
           'under-investigation view — the tab did not actually change'
       );
       continue;
     }
+    if (bothEmpty) {
+      // Both views hold no records, so there is nothing to double-count and
+      // nothing missing -- but equally, nothing distinguishes a switch to an
+      // empty archive from a switch that never happened. Say so rather than
+      // imply the archive was verified. No fact is published either way, and
+      // the guard regains full force the moment either view has a row.
+      console.error(
+        `${label}: both views exported zero rows. With no data on either side, the archive tab ` +
+          'switch cannot be independently confirmed — recorded as an empty listing, not as a ' +
+          'verified archive.'
+      );
+    }
 
-    archived = { csv: got.res, commandId: csvCommand, encoding: got.encoding, path: `archive[${variant.name}]` };
+    archived = {
+      csv: got.res,
+      commandId: csvCommand,
+      encoding: got.encoding,
+      path: `archive[${variant.name}]`,
+      gridReportsEmpty: gridReportsEmpty(html),
+    };
     break;
   }
 
   if (!archived) {
     const err = new Error(
-      'hhs_ocr: found the Archive tab but could not export distinct archived data from it. ' +
+      `${label}: found the Archive tab but could not export distinct archived data from it. ` +
         'Refusing to publish the recent view twice under two labels.\n' +
         attempts.map((a) => `  - ${a}`).join('\n')
     );
     err.archiveNotFound = true;
     if (requireArchive) throw err;
-    console.error(`hhs_ocr: WARNING archive view not captured.\n${err.message}`);
+    console.error(`${label}: WARNING archive view not captured.\n${err.message}`);
     return views;
   }
 
@@ -285,10 +392,11 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } 
     csv: archived.csv.body,
     checksum: archived.csv.checksum,
     retrieved_at: archived.csv.retrieved_at,
+    gridReportsEmpty: archived.gridReportsEmpty,
     steps: { path: archived.path, encoding: archived.encoding, csvCommand: archived.commandId, tabId: archiveTabId, bytes: archived.csv.body.length },
   });
 
   return views;
 }
 
-module.exports = { fetchBreachCsv, fetchAllViews, CookieJar, FRONT_PAGE, GRID_PAGE, GRID_LABEL, ARCHIVE_PATTERN, USER_AGENT };
+module.exports = { fetchBreachCsv, fetchAllViews, assertGridIdentity, dataRowsOf, gridReportsEmpty, GRID_IDENTITY, CookieJar, FRONT_PAGE, GRID_PAGE, PART2_GRID_PAGE, GRID_LABEL, ARCHIVE_PATTERN, USER_AGENT };

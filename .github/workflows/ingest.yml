@@ -8,12 +8,19 @@ name: Ingest HHS OCR breach records
 # run is what keeps the record current; the portal publishes new breaches
 # continuously.
 #
-# The scheduled run uses coverage=current deliberately. The archive view has no
-# control on the portal's report page and is not yet reachable, so a strict
-# scheduled run would fail every single day and the published record would go
-# stale while we solve that. Partial coverage is stated explicitly on /sources,
-# and the missing archive is logged loudly in every run summary. Manual
-# dispatch still defaults to 'all' so the strict path is exercised on demand.
+# OCR publishes two separate breach reports, and this workflow can ingest
+# either or both:
+#   hhs_ocr   - the HIPAA report (breach_report_hip.jsf)
+#   hhs_part2 - the 42 CFR Part 2 report (breach_report_part2.jsf), covering
+#               substance use disorder treatment records
+# Each is a distinct legal regime with its own listing. They are ingested as
+# separate sources so provenance stays exact, then exported and deployed once.
+#
+# The scheduled run ingests both reports. The scheduled run uses
+# coverage=current deliberately: the archive view holds a decade of closed
+# cases that do not change, so re-fetching it daily is a large fetch for no new
+# facts. Manual dispatch defaults to 'all', which requires the archive and
+# fails loudly if it cannot be reached.
 #
 # Requires the same secrets as deploy.yml:
 #   CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
@@ -21,12 +28,17 @@ name: Ingest HHS OCR breach records
 on:
   workflow_dispatch:
     inputs:
+      source:
+        description: 'Which OCR report to ingest'
+        type: choice
+        options: [hhs_ocr, hhs_part2, both]
+        default: hhs_ocr
       dry_run:
         description: 'Parse and score, but do not write to D1'
         type: boolean
         default: false
       coverage:
-        description: 'all = require the archive view (fails until archive support lands); current = documented partial ingest of the recent view'
+        description: 'all = require the archive view as well; current = under-investigation view only, documented on /sources'
         type: choice
         options: [all, current]
         default: all
@@ -62,17 +74,35 @@ jobs:
       # The portal is a stateful JSF app with no static CSV URL, so this step
       # drives its form sequence. It fails loudly on any deviation rather than
       # publishing a partial record set as if it were complete.
+      #
+      # With source=both, a failure in EITHER report fails the whole step. That
+      # is deliberate: a run that quietly ingested one regime and skipped the
+      # other would leave the site claiming coverage it does not have.
       - name: Ingest HHS OCR breach portal
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          INGEST_SOURCE: ${{ github.event.inputs.source || 'both' }}
+          INGEST_COVERAGE: ${{ github.event.inputs.coverage || (github.event_name == 'schedule' && 'current' || 'all') }}
+          INGEST_DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           # pipefail is essential: without it the exit code comes from tee and
           # a failed ingest reports as a successful step.
           set -o pipefail
-          node packages/ingest/run.js --source hhs_ocr --remote \
-            --coverage "${{ github.event.inputs.coverage || (github.event_name == 'schedule' && 'current' || 'all') }}" \
-            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }} 2>&1 | tee /tmp/ingest.log
+          set -e
+          if [ "$INGEST_SOURCE" = "both" ]; then
+            SOURCES="hhs_ocr hhs_part2"
+          else
+            SOURCES="$INGEST_SOURCE"
+          fi
+          DRY=""
+          if [ "$INGEST_DRY_RUN" = "true" ]; then DRY="--dry-run"; fi
+          : > /tmp/ingest.log
+          for s in $SOURCES; do
+            echo "=== ingest: $s (coverage=$INGEST_COVERAGE) ===" | tee -a /tmp/ingest.log
+            node packages/ingest/run.js --source "$s" --remote \
+              --coverage "$INGEST_COVERAGE" $DRY 2>&1 | tee -a /tmp/ingest.log
+          done
 
       - name: Publish ingest summary
         if: always()
@@ -80,7 +110,7 @@ jobs:
           {
             echo '## Ingest run'
             echo '```'
-            tail -40 /tmp/ingest.log 2>/dev/null || echo 'no log produced'
+            tail -80 /tmp/ingest.log 2>/dev/null || echo 'no log produced'
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
