@@ -22,6 +22,10 @@ const tv = require('./hhs-tabview');
 const BASE = 'https://ocrportal.hhs.gov/ocr/breach/';
 const FRONT_PAGE = `${BASE}breach_report.jsf`;
 const GRID_PAGE = `${BASE}breach_report_hip.jsf`;
+// The 42 CFR Part 2 report is a structurally identical grid at its own address:
+// same PrimeFaces datatable, same four exporters, same TabView archive. Found by
+// direct probe and confirmed by the front page's own navigation landing there.
+const PART2_GRID_PAGE = `${BASE}breach_report_part2.jsf`;
 const GRID_LABEL = 'View HIPAA Breach Reports';
 
 class CookieJar {
@@ -89,18 +93,19 @@ async function exportFromPage({ fetchImpl, jar, pageUrl, pageBody, attempts, pat
   return { csv: got.res, commandId, encoding: got.encoding, path: pathName };
 }
 
-async function fetchBreachCsv({ fetchImpl = politeFetch } = {}) {
+async function fetchBreachCsv({ fetchImpl = politeFetch, gridPage = GRID_PAGE } = {}) {
   const jar = new CookieJar();
   const attempts = [];
 
   // --- Primary: the data grid, fetched directly --------------------------
-  const direct = await fetchImpl(GRID_PAGE, { raw: true, jar });
+  const direct = await fetchImpl(gridPage, { raw: true, jar });
   let result = await exportFromPage({
-    fetchImpl, jar, pageUrl: GRID_PAGE, pageBody: direct.body, attempts, pathName: 'direct-grid',
+    fetchImpl, jar, pageUrl: gridPage, pageBody: direct.body, attempts, pathName: 'direct-grid',
   });
 
   // --- Fallback: navigate from the front page ----------------------------
-  if (!result) {
+  // Only meaningful for the HIPAA grid; the Part 2 grid is reached directly.
+  if (!result && gridPage === GRID_PAGE) {
     const front = await fetchImpl(FRONT_PAGE, { raw: true, jar });
     const frontHidden = jsf.extractHiddenInputs(front.body);
     const gridCommand = jsf.findCommandByLabel(front.body, GRID_LABEL);
@@ -175,24 +180,24 @@ const ARCHIVE_PATTERN = /archive/i;
  *
  * @returns {Array<{view, csv, checksum, retrieved_at, steps}>}
  */
-async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } = {}) {
+async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true, gridPage = GRID_PAGE } = {}) {
   const views = [];
 
   // View 1: whatever the grid shows by default (Under Investigation).
-  const current = await fetchBreachCsv({ fetchImpl });
+  const current = await fetchBreachCsv({ fetchImpl, gridPage });
   views.push({ view: 'under_investigation', csv: current.csv, checksum: current.steps.checksum, retrieved_at: current.steps.retrieved_at, steps: current.steps });
 
   // View 2: Archive. It is the second tab of a PrimeFaces TabView, loaded on
   // demand, so it needs a real tabChange postback rather than a command click.
   const jar = new CookieJar();
   const attempts = [];
-  const grid = await fetchImpl(GRID_PAGE, { raw: true, jar });
+  const grid = await fetchImpl(gridPage, { raw: true, jar });
   // Discovery aid: what other portal pages exist, for locating the archive.
   const linked = jsf.linkedPages(grid.body);
   if (linked.length) console.error(`hhs_ocr: .jsf pages linked from the grid: ${linked.join(' | ')}`);
 
   const gridHidden = jsf.extractHiddenInputs(grid.body);
-  const gridAction = new URL(jsf.extractFormAction(grid.body) || GRID_PAGE, GRID_PAGE).toString();
+  const gridAction = new URL(jsf.extractFormAction(grid.body) || gridPage, gridPage).toString();
   const tabView = tv.findTabView(gridHidden);
   const archiveTabId = tv.findTabId(grid.body, ARCHIVE_PATTERN);
 
@@ -291,4 +296,4 @@ async function fetchAllViews({ fetchImpl = politeFetch, requireArchive = true } 
   return views;
 }
 
-module.exports = { fetchBreachCsv, fetchAllViews, CookieJar, FRONT_PAGE, GRID_PAGE, GRID_LABEL, ARCHIVE_PATTERN, USER_AGENT };
+module.exports = { fetchBreachCsv, fetchAllViews, CookieJar, FRONT_PAGE, GRID_PAGE, PART2_GRID_PAGE, GRID_LABEL, ARCHIVE_PATTERN, USER_AGENT };

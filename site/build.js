@@ -20,7 +20,8 @@ const TEMPLATES = path.join(ROOT, config.paths.templates);
 
 // Human-readable attribution for each source type, shown in citation blocks.
 const SOURCE_LABELS = {
-  hhs_ocr: 'U.S. Department of Health and Human Services, Office for Civil Rights breach portal',
+  hhs_ocr: 'U.S. Department of Health and Human Services, Office for Civil Rights breach portal (HIPAA)',
+  hhs_part2: 'U.S. Department of Health and Human Services, Office for Civil Rights breach portal (42 CFR Part 2)',
   maine_ag: 'Maine Attorney General breach notifications',
   ca_ag: 'California Attorney General breach list',
   wa_ag: 'Washington Attorney General breach notifications',

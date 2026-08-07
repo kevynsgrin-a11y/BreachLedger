@@ -19,8 +19,16 @@ const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
 
-const hhs = require('./sources/hhs-ocr');
-const { fetchAllViews } = require('./sources/hhs-ocr-fetch');
+const hhsOcr = require('./sources/hhs-ocr');
+const hhsPart2 = require('./sources/hhs-part2');
+const { fetchAllViews, GRID_PAGE, PART2_GRID_PAGE } = require('./sources/hhs-ocr-fetch');
+
+// Registered sources. Both are OCR portal grids sharing one application and one
+// export mechanism; they differ in address, legal regime, and attribution.
+const SOURCES = {
+  hhs_ocr: { module: hhsOcr, gridPage: GRID_PAGE, label: 'HIPAA' },
+  hhs_part2: { module: hhsPart2, gridPage: PART2_GRID_PAGE, label: '42 CFR Part 2' },
+};
 const { validate, logReject } = require('./validate');
 const { assignSlugs } = require('./slug');
 const { buildStatements, batch } = require('./d1-writer');
@@ -75,9 +83,14 @@ async function main() {
   // coverage -- what is forbidden is presenting a slice AS the whole record.
   const coverage = arg('coverage', 'all');
 
-  if (sourceId !== 'hhs_ocr') {
-    throw new Error(`ingest: source '${sourceId}' is not implemented yet (Phase 1 covers hhs_ocr only)`);
+  const selected = SOURCES[sourceId];
+  if (!selected) {
+    throw new Error(
+      `ingest: source '${sourceId}' is not implemented. Available: ${Object.keys(SOURCES).join(', ')}`
+    );
   }
+  const hhs = selected.module;
+  console.error(`ingest: source ${sourceId} (${selected.label}) from ${selected.gridPage}`);
 
   // --- fetch -------------------------------------------------------------
   // Both portal views are required. "Under Investigation" holds only the last
@@ -96,7 +109,7 @@ async function main() {
     console.error(`ingest: reading ${fromFile} (${text.length} bytes) instead of fetching`);
   } else {
     console.error('ingest: driving the HHS OCR portal export sequence (both views)...');
-    views = await fetchAllViews({ requireArchive: coverage !== 'current' });
+    views = await fetchAllViews({ requireArchive: coverage !== 'current', gridPage: selected.gridPage });
     if (coverage === 'current') console.error('ingest: coverage=current (recent view only, documented on /sources)');
     for (const v of views) {
       console.error(
