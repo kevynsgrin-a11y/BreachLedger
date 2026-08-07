@@ -25,17 +25,20 @@ is updated with the new URL and a fresh verification date.
 Being explicit about what this record does and does not yet contain matters more
 than appearing complete.
 
-- **HHS Office for Civil Rights** — the portal presents its data in two views. The
-  "Under Investigation" view holds breaches reported in roughly the last 24 months, and
-  older resolved cases sit in an archive. **This site currently carries the Under
-  Investigation view only.** The archive is not exposed as a control on the report page,
-  and rather than guess at how to reach it, we publish what we have verified and say so
-  here. Backfilling the archive is the next scheduled work. Until it lands, treat the
-  absence of an older breach from this record as "not yet ingested," not as evidence that
-  no such breach was reported.
+- **HHS Office for Civil Rights** — the portal presents its data in two views: "Under
+  Investigation", holding breaches reported in roughly the last 24 months, and an archive
+  of older cases whose investigations have closed. **Both views are ingested**, so this
+  record covers the portal's full published history rather than a recent slice. Each
+  ingest retrieves both and merges them; a breach appearing in both views around the
+  24-month boundary is stored once.
 - The HHS portal covers breaches of protected health information affecting 500 or more
   individuals. Smaller breaches are reported to HHS annually and are not published in this
-  dataset, so they cannot appear here.
+  dataset, so they cannot appear here. This is a limit of the government record itself,
+  not of our ingestion.
+- HHS does not publish a discovery date, a breach start or end date, remediation offered,
+  or the set of states notified. Those fields are therefore empty on records sourced only
+  from HHS, and the severity score's notification-lag and remediation components are
+  reported as not assessable rather than assumed.
 - State attorney general sources, SEC filings, and litigation records are not yet ingested.
   The sources above marked for later phases are documented, not live.
 
