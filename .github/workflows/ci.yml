@@ -13,11 +13,16 @@ name: CI
 # an empty record set and still renders the static pages, which is exactly the
 # "empty but valid" property worth guarding.
 
+# pull_request only, deliberately. A `push` trigger alongside it fires a second,
+# identical run for every push to a branch with an open PR — two runs of the
+# same job on the same commit, under the same name, which doubles the cost and
+# makes the checks list ambiguous to a reviewer. Branch pushes before a PR
+# exists are the uncovered case, and `workflow_dispatch` handles those on
+# demand; pushes to main are already covered by deploy.yml, which runs the same
+# suite before it publishes.
 on:
   pull_request:
-  push:
-    branches-ignore:
-      - main
+  workflow_dispatch: {}
 
 permissions:
   contents: read
