@@ -116,10 +116,14 @@ test('links to sector hub and year archive use trailing slashes', () => {
   assert.match(html, /href="\/breaches\/2025\/"/);
 });
 
-test('what-to-do link is withheld until phase 3', () => {
-  assert.ok(!renderOne().includes('what-to-do'));
-  const p3 = render({ ...baseCtx, buildPhase: 3, breach, sources });
-  assert.match(p3, /what-to-do/);
+// The link tracks whether the page was actually generated, not the build
+// phase. site/build.js decides that from the modules applicable to this
+// record's data classes and passes the answer in, so a linked what-to-do page
+// always exists and an unlinked one was never written.
+test('what-to-do link appears only when a remediation page was generated', () => {
+  assert.ok(!renderOne().includes('what-to-do'), 'no link when no module applies');
+  const withPage = render({ ...baseCtx, hasRemediation: true, breach, sources });
+  assert.match(withPage, /href="\/breach\/[^"]+\/what-to-do\/"/);
 });
 
 test('entity names with HTML metacharacters are escaped', () => {

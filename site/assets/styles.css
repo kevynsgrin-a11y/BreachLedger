@@ -115,6 +115,35 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .citations li { margin-bottom: 0.3rem; font-size: 0.9rem; }
 .retrieved { color: var(--ink-faint); font-size: 0.85em; }
 
+/* Pagination for the sharded index views. Set as quiet navigation furniture:
+   an index page is a finding aid, and the control that walks it should not
+   compete with the record itself. */
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.9rem;
+  border-top: 1px solid var(--rule);
+  padding-top: 0.8rem;
+  margin: 1.2rem 0 0;
+  font-size: 0.9rem;
+}
+.pager-position { color: var(--ink-faint); }
+.pager-jump { margin-left: auto; display: flex; gap: 0.9rem; }
+
+/* Remediation modules: each is a self-contained block of published federal
+   guidance, ending in the citation that makes it checkable. */
+.remediation-module { border-top: 1px solid var(--rule); padding-top: 0.6rem; margin: 1.8rem 0; }
+.remediation-module h2 { margin-top: 0.4rem; }
+.remediation-module ol, .remediation-module ul { padding-left: 1.3rem; }
+.remediation-module li { margin-bottom: 0.4rem; }
+.module-applies { color: var(--ink-faint); font-size: 0.85rem; margin: 0.2rem 0 0.9rem; }
+
+/* Statute reference: a two-column term/value table, so the row label reads as
+   the field name rather than as a column heading. */
+.rights-table th { width: 34%; text-transform: none; letter-spacing: 0; font-size: 0.9rem; color: var(--ink); }
+.rights-table td { color: var(--ink-soft); }
+
 .site-footer { border-top: 1px solid var(--rule); margin-top: 2rem; padding: 1.2rem 0 2rem; color: var(--ink-faint); font-size: 0.85rem; }
 
 hr { border: 0; border-top: 1px solid var(--rule); margin: 1.6rem 0; }

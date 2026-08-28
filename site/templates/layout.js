@@ -4,7 +4,20 @@
 
 const { escapeHtml } = require('./markdown');
 
-function page({ site, title, description, content, route, assets = {} }) {
+// JSON-LD is the one script element this site emits, and it carries no
+// executable code. '<' is serialized as \u003c so no string value — an entity
+// name, a description — can close the element early and inject markup. The
+// build guard (site/build.js) independently rejects any ld+json block whose
+// payload still contains a raw '<', so an escaping regression fails the build
+// rather than shipping.
+function jsonLd(objects) {
+  return (objects || [])
+    .filter(Boolean)
+    .map((obj) => `\n<script type="application/ld+json">${JSON.stringify(obj).replace(/</g, '\\u003c')}</script>`)
+    .join('');
+}
+
+function page({ site, title, description, content, route, assets = {}, structuredData = [] }) {
   const stylesheet = assets['styles.css'] || 'styles.css';
   const fullTitle = route === '/' ? `${site.name} — ${site.tagline}` : `${title} — ${site.name}`;
   const url = `${site.origin}${route === '/' ? '/' : route + '/'}`;
@@ -22,13 +35,16 @@ function page({ site, title, description, content, route, assets = {} }) {
 <meta property="og:locale" content="${site.language.replace('-', '_')}">
 <meta name="twitter:card" content="summary">`
     : '';
+  // Structured data is suppressed on noindex pages: describing a page to a
+  // crawler that has just been told not to index it is contradictory.
+  const structured = indexable ? jsonLd(structuredData) : '';
   return `<!doctype html>
 <html lang="${site.language}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(fullTitle)}</title>
-<meta name="description" content="${escapeHtml(description)}">${canonical}${social}
+<meta name="description" content="${escapeHtml(description)}">${canonical}${social}${structured}
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/assets/${stylesheet}">
 </head>
@@ -39,6 +55,7 @@ function page({ site, title, description, content, route, assets = {} }) {
     <p class="site-tagline">${escapeHtml(site.tagline)}. Every entry cites a government or court source.</p>
     <nav class="site-nav">
       <a href="/">Record</a>
+      <a href="/rights/">Rights by state</a>
       <a href="/severity/">Severity rubric</a>
       <a href="/sources/">Sources &amp; methodology</a>
       <a href="/corrections/">Corrections</a>
@@ -59,4 +76,4 @@ ${content}
 </html>`;
 }
 
-module.exports = { page };
+module.exports = { page, jsonLd };

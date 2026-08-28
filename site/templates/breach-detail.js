@@ -4,6 +4,9 @@
 
 const { page } = require('./layout');
 const { escapeHtml } = require('./markdown');
+const { breadcrumbList } = require('./structured-data');
+// Label map only; sector-hub does not require this module, so there is no cycle.
+const { SECTOR_LABEL } = require('./sector-hub');
 const { score } = require('../../packages/severity/score');
 
 const PERMANENCE_LABEL = {
@@ -82,7 +85,7 @@ ${classRows ? `<h3>Data class weights applied</h3><div class="table-scroll"><tab
 }
 
 function render(ctx) {
-  const { site, breach, sources, litigation = [], dataClassMap, buildPhase } = ctx;
+  const { site, breach, sources, litigation = [], dataClassMap, hasRemediation = false } = ctx;
 
   const exposed = breach.data_classes_parsed || [];
   const states = breach.states_notified_parsed || [];
@@ -175,7 +178,9 @@ record names the reporting organization and identifies no individual.</p>`
   const nav = [
     breach.sector ? `<a href="/sector/${escapeHtml(breach.sector)}/">All ${escapeHtml(breach.sector)} breaches</a>` : '',
     year ? `<a href="/breaches/${escapeHtml(year)}/">Breaches reported in ${escapeHtml(year)}</a>` : '',
-    buildPhase >= 3 ? `<a href="/breach/${escapeHtml(breach.slug)}/what-to-do/">What to do if you were affected</a>` : '',
+    hasRemediation
+      ? `<a href="/breach/${escapeHtml(breach.slug)}/what-to-do/">What to do if you were notified</a>`
+      : '',
   ].filter(Boolean).join(' &middot; ');
 
   const content = `
@@ -224,9 +229,20 @@ ${litigationBlock}
 ${nav ? `<p class="related">${nav}</p>` : ''}
 <p class="corrections-link">Found an error in this record? See the <a href="/corrections/">corrections policy</a>.</p>`;
 
+  // Mirrors the visible breadcrumb above, plus the sector hub the reader can
+  // actually navigate to. Nothing is asserted here that the page does not show.
+  const structuredData = [
+    breadcrumbList(site.origin, [
+      { name: 'Record', path: '/' },
+      ...(breach.sector ? [{ name: SECTOR_LABEL[breach.sector] || breach.sector, path: `/sector/${breach.sector}/` }] : []),
+      { name: breach.entity_name },
+    ]),
+  ];
+
   return page({
     site,
     assets: ctx.assets,
+    structuredData,
     route: `/breach/${breach.slug}`,
     title: `${breach.entity_name} data breach`,
     description: `Government record of the ${breach.entity_name} data breach${

@@ -1,5 +1,6 @@
 const { page } = require('./layout');
 const { escapeHtml } = require('./markdown');
+const { dataset } = require('./structured-data');
 
 function render(ctx) {
   const { site, breaches, litigation } = ctx;
@@ -59,6 +60,8 @@ methodology</a>. Errors are corrected openly and logged on the <a href="/correct
   return page({
     site,
     assets: ctx.assets,
+    // The record as a whole is described once, on its own front page.
+    structuredData: [dataset(site, breaches)],
     route: '/',
     title: site.name,
     description: 'A structured public record of disclosed U.S. data breaches, compiled from federal and state government filings, with every fact traced to a citable source.',
