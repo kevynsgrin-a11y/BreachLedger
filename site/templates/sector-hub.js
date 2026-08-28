@@ -41,7 +41,9 @@ function render(ctx) {
       : ''
   }${totalPages > 1 ? ` Listed newest first, ${escapeHtml(String(visible.length))} per page.` : ''}</p>
 
-${breachRows(visible)}
+${breachRows(visible, {
+    caption: `${label} data breaches on the record${totalPages > 1 ? `, page ${current} of ${totalPages}` : ''}`,
+  })}
 ${pager(basePath, current, totalPages)}
 
 <p class="related"><a href="/">All sectors</a> &middot; <a href="/sources/">How this record is compiled</a></p>`;

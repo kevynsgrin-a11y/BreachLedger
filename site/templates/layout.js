@@ -23,8 +23,12 @@ function page({ site, title, description, content, route, assets = {}, structure
   const url = `${site.origin}${route === '/' ? '/' : route + '/'}`;
   const indexable = route !== '/404';
   const canonical = indexable ? `\n<link rel="canonical" href="${url}">` : '\n<meta name="robots" content="noindex">';
-  // Link-preview metadata. No og:image is declared: an image tag pointing at a
-  // file that does not exist renders worse than none at all.
+  // Link-preview metadata. One static site-wide image rather than a per-page
+  // one: a shared card is a strict improvement over the bare text a link
+  // previewed as before, and it cannot go stale against a record it does not
+  // describe. Deliberately carries no breach-specific text, so a Part 2 record
+  // shared as a link reveals nothing its metadata is required to withhold.
+  const ogImage = `${site.origin}/assets/og-default.png`;
   const social = indexable
     ? `
 <meta property="og:type" content="website">
@@ -33,7 +37,15 @@ function page({ site, title, description, content, route, assets = {}, structure
 <meta property="og:description" content="${escapeHtml(description)}">
 <meta property="og:url" content="${url}">
 <meta property="og:locale" content="${site.language.replace('-', '_')}">
-<meta name="twitter:card" content="summary">`
+<meta property="og:image" content="${ogImage}">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${escapeHtml(site.name)} — ${escapeHtml(site.tagline)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${escapeHtml(fullTitle)}">
+<meta name="twitter:description" content="${escapeHtml(description)}">
+<meta name="twitter:image" content="${ogImage}">`
     : '';
   // Structured data is suppressed on noindex pages: describing a page to a
   // crawler that has just been told not to index it is contradictory.
@@ -46,9 +58,13 @@ function page({ site, title, description, content, route, assets = {}, structure
 <title>${escapeHtml(fullTitle)}</title>
 <meta name="description" content="${escapeHtml(description)}">${canonical}${social}${structured}
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/assets/icon-192.png">
+<link rel="manifest" href="/assets/manifest.json">
+<meta name="theme-color" content="#1c1e21">
 <link rel="stylesheet" href="/assets/${stylesheet}">
 </head>
 <body>
+<a class="skip-link" href="#main">Skip to content</a>
 <header class="site-header">
   <div class="wrap">
     <p class="masthead"><a href="/">${escapeHtml(site.name)}</a></p>
@@ -62,14 +78,16 @@ function page({ site, title, description, content, route, assets = {}, structure
     </nav>
   </div>
 </header>
-<main class="wrap">
+<main class="wrap" id="main">
 ${content}
 </main>
 <footer class="site-footer">
   <div class="wrap">
     <p>${escapeHtml(site.name)} is a public record compiled from government and court disclosures. It is not a law firm,
     not a settlement administrator, and does not process or advise on claims. Nothing on this site is legal advice.</p>
-    <p><a href="/sources/">How this record is compiled</a> · <a href="/corrections/">Corrections policy</a></p>
+    <p><a href="/sources/">How this record is compiled</a> · <a href="/corrections/">Corrections policy</a> ·
+    <a href="/privacy/">Privacy</a></p>
+    <p>This site sets no cookies, runs no analytics, and collects no data about its readers.</p>
   </div>
 </footer>
 </body>

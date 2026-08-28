@@ -33,6 +33,7 @@ module.exports = {
     { path: '/severity', template: 'severity', phase: 0 },
     { path: '/sources', template: 'sources', phase: 0 },
     { path: '/corrections', template: 'corrections', phase: 0 },
+    { path: '/privacy', template: 'privacy', phase: 0 },
     { path: '/breach/[slug]', template: 'breach-detail', phase: 1 },
     // Remediation and state-rights pages are assembled from the seeded
     // reference tables (remediation_modules, state_rights), which are complete

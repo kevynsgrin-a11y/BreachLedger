@@ -34,7 +34,9 @@ function render(ctx) {
       : ''
   } Dates reflect when the breach was reported to the government, which is not the same as when it occurred.</p>
 
-${breachRows(visible)}
+${breachRows(visible, {
+    caption: `Data breaches reported in ${year}${totalPages > 1 ? `, page ${current} of ${totalPages}` : ''}`,
+  })}
 ${pager(basePath, current, totalPages)}
 
 ${otherYears ? `<h2>Other years</h2><p class="related">${otherYears}</p>` : ''}`;

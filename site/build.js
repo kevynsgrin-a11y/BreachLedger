@@ -214,6 +214,7 @@ function main() {
     docs: {
       sources: readDoc('SOURCES.md'),
       corrections: readDoc('CORRECTIONS.md'),
+      privacy: readDoc('privacy.md'),
     },
     renderMarkdown,
   };
@@ -442,7 +443,9 @@ function main() {
       '  X-Frame-Options: DENY',
       '  Referrer-Policy: strict-origin-when-cross-origin',
       '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
-      "  Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+      // manifest-src is required explicitly: default-src 'none' otherwise
+      // blocks the web app manifest fetch, and the failure is silent.
+      "  Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
       '  Cross-Origin-Opener-Policy: same-origin',
       // 6 months, no preload: long enough to protect returning visitors,
       // short enough to back out of without a browser-list removal request.

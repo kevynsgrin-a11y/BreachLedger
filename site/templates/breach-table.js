@@ -49,11 +49,17 @@ function pager(basePath, page, totalPages) {
   }</nav>`;
 }
 
-function breachRows(breaches, { showSector = true } = {}) {
+// `caption` names the table for a screen reader. The visible heading above it
+// already names it for everyone else, so the caption is rendered off-screen
+// rather than duplicated on the page.
+function breachRows(breaches, { showSector = true, caption } = {}) {
   if (!breaches.length) {
     return `<div class="empty-state">No breaches are on the record here yet.</div>`;
   }
-  const head = `<tr><th>Entity</th>${showSector ? '<th>Sector</th>' : ''}<th>Reported</th><th>Records affected</th><th>Severity</th></tr>`;
+  const cap = caption ? `<caption class="sr-only">${escapeHtml(caption)}</caption>` : '';
+  const head = `<tr><th scope="col">Entity</th>${
+    showSector ? '<th scope="col">Sector</th>' : ''
+  }<th scope="col">Reported</th><th scope="col">Records affected</th><th scope="col">Severity</th></tr>`;
   const body = breaches
     .map((b) => {
       const records =
@@ -73,7 +79,7 @@ ${showSector ? `<td>${escapeHtml(b.sector || '')}</td>` : ''}
 </tr>`;
     })
     .join('\n');
-  return `<div class="table-scroll"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  return `<div class="table-scroll"><table>${cap}<thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 
 module.exports = { breachRows, paginate, pager, pageCount, pagePath, PAGE_SIZE };

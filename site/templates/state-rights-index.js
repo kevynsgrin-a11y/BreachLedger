@@ -56,7 +56,8 @@ describe any particular breach. ${escapeHtml(site.name)} is not a law firm and c
 applies to an individual case. Each entry cites the statute and the date it was last verified.</p>
 
 <div class="table-scroll"><table>
-<thead><tr><th>Jurisdiction</th><th>Notice deadline</th><th>Attorney general notice</th><th>Credit freeze</th><th>Monitoring</th></tr></thead>
+<caption class="sr-only">Breach notification statute summary for each U.S. jurisdiction</caption>
+<thead><tr><th scope="col">Jurisdiction</th><th scope="col">Notice deadline</th><th scope="col">Attorney general notice</th><th scope="col">Credit freeze</th><th scope="col">Monitoring</th></tr></thead>
 <tbody>
 ${rows}
 </tbody></table></div>

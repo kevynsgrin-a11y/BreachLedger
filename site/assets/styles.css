@@ -115,6 +115,55 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .citations li { margin-bottom: 0.3rem; font-size: 0.9rem; }
 .retrieved { color: var(--ink-faint); font-size: 0.85em; }
 
+/* Keyboard users reach the record without tabbing the masthead every time.
+   Off-screen until focused, then pinned over the header. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 0.6em 1em;
+  font-size: 0.9rem;
+}
+.skip-link:focus { left: 0.5rem; top: 0.5rem; }
+
+/* Visually hidden, still announced. Used for table captions: a dense data
+   table needs a name for a screen reader, but the visible heading above it
+   already names it for everyone else. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Coverage and scoring caveats: quiet, but on the page rather than buried in
+   a methodology link. */
+.scope-note, .score-limits {
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+  border-left: 2px solid var(--rule);
+  padding-left: 0.9rem;
+  margin: 0.9rem 0 1.2rem;
+}
+
+/* Row-header cells in term/value tables (timeline, statute reference). */
+th[scope="row"] {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.9rem;
+  color: var(--ink);
+  font-weight: 600;
+  width: 34%;
+}
+
 /* Pagination for the sharded index views. Set as quiet navigation furniture:
    an index page is a finding aid, and the control that walks it should not
    compete with the record itself. */
@@ -139,9 +188,8 @@ td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: now
 .remediation-module li { margin-bottom: 0.4rem; }
 .module-applies { color: var(--ink-faint); font-size: 0.85rem; margin: 0.2rem 0 0.9rem; }
 
-/* Statute reference: a two-column term/value table, so the row label reads as
-   the field name rather than as a column heading. */
-.rights-table th { width: 34%; text-transform: none; letter-spacing: 0; font-size: 0.9rem; color: var(--ink); }
+/* Statute reference: a two-column term/value table. Its row headers are styled
+   by the generic th[scope="row"] rule above. */
 .rights-table td { color: var(--ink-soft); }
 
 .site-footer { border-top: 1px solid var(--rule); margin-top: 2rem; padding: 1.2rem 0 2rem; color: var(--ink-faint); font-size: 0.85rem; }

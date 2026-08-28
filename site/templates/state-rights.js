@@ -83,7 +83,7 @@ function render(ctx) {
     ['Identity theft monitoring', monitoringText(state.mandated_monitoring_months)],
     ['Attorney general notice', agThresholdText(state.ag_report_threshold)],
   ]
-    .map(([label, value]) => `<tr><th>${escapeHtml(label)}</th><td>${value}</td></tr>`)
+    .map(([label, value]) => `<tr><th scope="row">${escapeHtml(label)}</th><td>${value}</td></tr>`)
     .join('\n');
 
   const others = states

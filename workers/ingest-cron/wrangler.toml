@@ -2,7 +2,13 @@ name = "breachledger-ingest-cron"
 main = "src/index.js"
 compatibility_date = "2026-07-01"
 
-# Daily 06:00 UTC full ingest; hourly settlement-deadline refresh.
+# INERT. This Worker is not deployed (see README, "Build phases"), so these
+# triggers do not fire. The daily ingest that actually runs today is GitHub
+# Actions' own schedule in .github/workflows/ingest.yml, which invokes
+# packages/ingest/run.js directly on the runner. Its 06:00 UTC cron and the
+# first entry below are the same value by coincidence, not by connection:
+# changing one does NOT change the other. These stay here as the intended
+# schedule for when ingest-cron is deployed.
 [triggers]
 crons = ["0 6 * * *", "0 * * * *"]
 
