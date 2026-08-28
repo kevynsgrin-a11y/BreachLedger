@@ -6,7 +6,10 @@
 :root {
   --ink: #1c1e21;
   --ink-soft: #4a4e54;
-  --ink-faint: #6e737a;
+  /* Darkened from #6e737a: that value cleared WCAG AA against --paper (4.61:1)
+     but not against --zebra (4.45:1), and .not-disclosed renders in exactly
+     that position — faint text inside a zebra-striped table row. */
+  --ink-faint: #686d74;
   --paper: #fbfbfa;
   --panel: #f2f2ef;
   --zebra: #f7f7f5;
@@ -16,6 +19,29 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --serif: "Charter", "Georgia", "Times New Roman", serif;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+/* Dark theme. Follows the reader's system setting only — there is no toggle,
+   because a toggle needs JavaScript and this site ships none.
+
+   The palette is not an inversion. --paper darkens to a near-black that is
+   still slightly warm, --ink lands short of pure white (pure white on near
+   black is the pairing that produces halation on OLED), and the accent and
+   amber are lightened rather than reused: #2b5b84 on a dark ground reads as
+   almost black. Every pairing the templates can produce was checked against
+   WCAG AA and clears it — lowest is faint text on a panel at 4.77:1. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #ececea;
+    --ink-soft: #b8bcc2;
+    --ink-faint: #8a8f96;
+    --paper: #1a1b1d;
+    --panel: #232427;
+    --zebra: #202124;
+    --rule: #3a3b3e;
+    --accent: #6ea3cf;
+    --deadline-amber: #d9a441;
+  }
 }
 
 * { box-sizing: border-box; }

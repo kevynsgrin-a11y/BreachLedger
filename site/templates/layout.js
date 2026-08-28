@@ -60,7 +60,8 @@ function page({ site, title, description, content, route, assets = {}, structure
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/assets/icon-192.png">
 <link rel="manifest" href="/assets/manifest.json">
-<meta name="theme-color" content="#1c1e21">
+<meta name="theme-color" content="#fbfbfa" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a1b1d" media="(prefers-color-scheme: dark)">
 <link rel="stylesheet" href="/assets/${stylesheet}">
 </head>
 <body>

@@ -1,0 +1,62 @@
+name: CI
+
+# Runs the test suite and a build smoke test on every pull request and on every
+# push to a branch that is not the production branch.
+#
+# This is deliberately separate from deploy.yml. That workflow also runs the
+# tests, but only on a push to the production branch — i.e. after a merge — so
+# until now a pull request could not be seen green before it was merged. It also
+# needs Cloudflare credentials, which a fork's pull request cannot have.
+#
+# Nothing here touches D1, Cloudflare, or any secret. site/data is generated at
+# deploy time and absent in a fresh checkout; the build treats missing data as
+# an empty record set and still renders the static pages, which is exactly the
+# "empty but valid" property worth guarding.
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Unit tests
+        run: npm test
+
+      # A passing suite with a broken generator is still a broken site, so the
+      # build has to run. SITE_ORIGIN is passed explicitly because the build
+      # refuses to render against a placeholder origin.
+      - name: Build smoke test
+        env:
+          SITE_ORIGIN: https://breachbook.org
+        run: npm run build
+
+      # The build's own guards (emoji, zero-JS, duplicate sitemap URL) run per
+      # page and would already have thrown. This checks the artefacts a
+      # zero-record build must still produce.
+      - name: Check the build produced its platform files
+        run: |
+          set -e
+          for f in dist/index.html dist/robots.txt dist/_headers dist/sitemap.xml dist/404.html; do
+            [ -s "$f" ] || { echo "::error::$f missing or empty after build"; exit 1; }
+          done
+          grep -q '^Sitemap: https://' dist/robots.txt \
+            || { echo "::error::robots.txt lost its Sitemap: directive"; exit 1; }
+          echo "built $(find dist -name index.html | wc -l) pages"
