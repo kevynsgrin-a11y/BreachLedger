@@ -12,6 +12,41 @@
 // marking up a breach as a NewsArticle, for instance, would claim an authored
 // story where this site publishes a government filing.
 
+// The publisher of record, as an Organization. Emitted on /about and reused as
+// the publisher of the Dataset, so a crawler resolves both to one identifiable
+// legal entity rather than to a bare site name.
+function publisher(site) {
+  const p = site.publisher;
+  if (!p || !p.name) return null;
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: p.name,
+    legalName: p.name,
+    url: `${site.origin}/`,
+    ...(p.email ? { email: p.email } : {}),
+    address: {
+      '@type': 'PostalAddress',
+      streetAddress: p.streetAddress,
+      addressLocality: p.addressLocality,
+      addressRegion: p.addressRegion,
+      postalCode: p.postalCode,
+      addressCountry: p.addressCountry,
+    },
+    // Where the standards this record is held to are actually written down.
+    publishingPrinciples: `${site.origin}/sources/`,
+  };
+}
+
+// The publisher as a nested node, for use inside another object. Carries no
+// @context of its own: only the outermost node in a block declares one.
+function publisherNode(site) {
+  const full = publisher(site);
+  if (!full) return null;
+  const { '@context': _ctx, ...node } = full;
+  return node;
+}
+
 function breadcrumbList(origin, trail) {
   return {
     '@context': 'https://schema.org',
@@ -37,6 +72,7 @@ function temporalCoverage(breaches) {
 
 function dataset(site, breaches) {
   const coverage = temporalCoverage(breaches);
+  const org = publisherNode(site);
   return {
     '@context': 'https://schema.org',
     '@type': 'Dataset',
@@ -46,7 +82,10 @@ function dataset(site, breaches) {
       'government filings. Every published fact traces to a citable government or court source.',
     url: `${site.origin}/`,
     isAccessibleForFree: true,
-    creator: { '@type': 'Organization', name: site.name, url: `${site.origin}/` },
+    // Falls back to the site name only if no publisher is configured; naming the
+    // legal entity is the point of carrying this at all.
+    creator: org || { '@type': 'Organization', name: site.name, url: `${site.origin}/` },
+    ...(org ? { publisher: org } : {}),
     inLanguage: site.language,
     ...(coverage ? { temporalCoverage: coverage } : {}),
     spatialCoverage: { '@type': 'Place', name: 'United States' },
@@ -56,4 +95,4 @@ function dataset(site, breaches) {
   };
 }
 
-module.exports = { breadcrumbList, dataset, temporalCoverage };
+module.exports = { breadcrumbList, dataset, temporalCoverage, publisher, publisherNode };

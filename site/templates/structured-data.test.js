@@ -1,14 +1,25 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-const { breadcrumbList, dataset, temporalCoverage } = require('./structured-data');
+const { breadcrumbList, dataset, temporalCoverage, publisher, publisherNode } = require('./structured-data');
 const { page, jsonLd } = require('./layout');
+
+const PUBLISHER = {
+  name: 'Oak and Main Developers LLC',
+  streetAddress: '2108 N St.',
+  addressLocality: 'Sacramento',
+  addressRegion: 'CA',
+  postalCode: '95816',
+  addressCountry: 'US',
+  email: 'corrections@breachbook.org',
+};
 
 const SITE = {
   name: 'BreachBook',
   tagline: 'A public record of disclosed U.S. data breaches',
   origin: 'https://breachbook.org',
   language: 'en-US',
+  publisher: PUBLISHER,
 };
 
 test('breadcrumb positions are 1-based and sequential', () => {
@@ -96,6 +107,40 @@ test('structured data is suppressed on noindex pages', () => {
   });
   assert.ok(html.includes('noindex'));
   assert.ok(!html.includes('application/ld+json'));
+});
+
+// The publisher identity is what makes this YMYL record attributable.
+test('publisher names the legal entity and its postal address', () => {
+  const org = publisher(SITE);
+  assert.equal(org['@type'], 'Organization');
+  assert.equal(org.name, 'Oak and Main Developers LLC');
+  assert.equal(org.legalName, 'Oak and Main Developers LLC');
+  assert.equal(org.address['@type'], 'PostalAddress');
+  assert.equal(org.address.addressRegion, 'CA');
+  assert.equal(org.address.postalCode, '95816');
+  assert.equal(org.email, 'corrections@breachbook.org');
+  assert.equal(org.publishingPrinciples, 'https://breachbook.org/sources/');
+});
+
+test('a nested publisher carries no @context of its own', () => {
+  // Only the outermost node in a JSON-LD block declares @context.
+  assert.ok(!('@context' in publisherNode(SITE)));
+  assert.equal(publisherNode(SITE).name, 'Oak and Main Developers LLC');
+});
+
+test('the dataset credits the legal entity as creator and publisher', () => {
+  const ds = dataset(SITE, [{ notification_date: '2026-01-01' }]);
+  assert.equal(ds.creator.name, 'Oak and Main Developers LLC');
+  assert.equal(ds.publisher.name, 'Oak and Main Developers LLC');
+  assert.ok(!('@context' in ds.creator), 'nested nodes must not redeclare @context');
+});
+
+test('a site with no configured publisher still produces a valid dataset', () => {
+  const { publisher: _omitted, ...bare } = SITE;
+  assert.equal(publisher(bare), null);
+  const ds = dataset(bare, []);
+  assert.equal(ds.creator.name, 'BreachBook', 'falls back to the site name');
+  assert.ok(!('publisher' in ds), 'no publisher node when none is configured');
 });
 
 test('emitted structured data is parseable JSON', () => {

@@ -76,6 +76,7 @@ function page({ site, title, description, content, route, assets = {}, structure
       <a href="/severity/">Severity rubric</a>
       <a href="/sources/">Sources &amp; methodology</a>
       <a href="/corrections/">Corrections</a>
+      <a href="/about/">About</a>
     </nav>
   </div>
 </header>
@@ -86,9 +87,16 @@ ${content}
   <div class="wrap">
     <p>${escapeHtml(site.name)} is a public record compiled from government and court disclosures. It is not a law firm,
     not a settlement administrator, and does not process or advise on claims. Nothing on this site is legal advice.</p>
-    <p><a href="/sources/">How this record is compiled</a> · <a href="/corrections/">Corrections policy</a> ·
-    <a href="/privacy/">Privacy</a></p>
-    <p>This site sets no cookies, runs no analytics, and collects no data about its readers.</p>
+    <p><a href="/about/">About</a> · <a href="/sources/">How this record is compiled</a> ·
+    <a href="/corrections/">Corrections policy</a> · <a href="/privacy/">Privacy</a></p>
+    <p>This site sets no cookies, runs no analytics, and collects no data about its readers.</p>${
+      site.publisher && site.publisher.name
+        ? `
+    <p class="publisher-line">Published by ${escapeHtml(site.publisher.name)}, ${escapeHtml(
+            site.publisher.addressLocality
+          )}, ${escapeHtml(site.publisher.addressRegion)}. Corrections: ${escapeHtml(site.publisher.email)}</p>`
+        : ''
+    }
   </div>
 </footer>
 </body>

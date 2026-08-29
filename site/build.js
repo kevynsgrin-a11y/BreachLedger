@@ -215,6 +215,7 @@ function main() {
       sources: readDoc('SOURCES.md'),
       corrections: readDoc('CORRECTIONS.md'),
       privacy: readDoc('privacy.md'),
+      about: readDoc('about.md'),
     },
     renderMarkdown,
   };
@@ -429,9 +430,28 @@ function main() {
     fs.writeFileSync(path.join(OUT, 'sitemap.xml'), urlsetXml(sitemap));
   }
 
-  // robots.txt now points at the sitemap. Without the directive a crawler has
-  // to discover 7,800+ URLs by link-walking the hub pages alone.
-  fs.writeFileSync(path.join(OUT, 'robots.txt'), `User-agent: *\nAllow: /\nSitemap: ${origin}/sitemap.xml\n`);
+  // robots.txt. The Sitemap: directive matters at this scale — without it a
+  // crawler has to discover 15,000+ URLs by link-walking the hub pages alone.
+  //
+  // Every crawler is allowed, AI training crawlers included, and that is a
+  // decision rather than an omission — so it is written down here rather than
+  // left to be inferred from the absence of a Disallow. This site exists to be
+  // a citable public record; being quoted, referenced and surfaced serves that
+  // purpose, and the underlying facts are government filings the site does not
+  // own. To reverse it, add per-agent Disallow blocks above the wildcard.
+  fs.writeFileSync(
+    path.join(OUT, 'robots.txt'),
+    [
+      '# BreachBook is a public record of government breach filings.',
+      '# All crawlers, including AI training crawlers, are deliberately allowed:',
+      '# see /about/ and /sources/ for what this record is and how it is compiled.',
+      'User-agent: *',
+      'Allow: /',
+      '',
+      `Sitemap: ${origin}/sitemap.xml`,
+      '',
+    ].join('\n')
+  );
   // Security headers for Cloudflare Pages. The site ships zero JavaScript and
   // one same-origin stylesheet, so the CSP can be maximally strict. Revisit
   // style-src if a template ever needs an inline width (severity bars).

@@ -12,6 +12,21 @@ module.exports = {
     // deployments so canonical URLs match the host actually serving them.
     origin: process.env.SITE_ORIGIN || 'https://breachbook.org',
     language: 'en-US',
+
+    // Publisher of record. Named on /about, in the footer, and in the
+    // Organization and Dataset structured data. This is YMYL content — breach
+    // records, exposure of medical and Social Security data, statutory
+    // deadlines — where an identifiable, contactable publisher is part of what
+    // makes the record credible rather than merely available.
+    publisher: {
+      name: 'Oak and Main Developers LLC',
+      streetAddress: '2108 N St.',
+      addressLocality: 'Sacramento',
+      addressRegion: 'CA',
+      postalCode: '95816',
+      addressCountry: 'US',
+      email: 'corrections@breachbook.org',
+    },
   },
 
   paths: {
@@ -34,6 +49,7 @@ module.exports = {
     { path: '/sources', template: 'sources', phase: 0 },
     { path: '/corrections', template: 'corrections', phase: 0 },
     { path: '/privacy', template: 'privacy', phase: 0 },
+    { path: '/about', template: 'about', phase: 0 },
     { path: '/breach/[slug]', template: 'breach-detail', phase: 1 },
     // Remediation and state-rights pages are assembled from the seeded
     // reference tables (remediation_modules, state_rights), which are complete

@@ -2,6 +2,9 @@
 
 BreachBook collects no data about the people who read it.
 
+This site is published by Oak and Main Developers LLC, 2108 N St., Sacramento, CA 95816. Questions
+about this policy go to corrections@breachbook.org; see [about](/about/) for the publisher of record.
+
 ## What this site collects
 
 Nothing. There are no cookies, no analytics, no tracking pixels, no advertising, no embedded video,
@@ -45,11 +48,16 @@ nothing else: no profiling, no enrichment, no sale or sharing.
 
 ## Your rights
 
-Because no personal information is collected, there is nothing held about a reader to access,
-correct, delete, or port, and nothing to sell or share — including under the California Consumer
-Privacy Act as amended by the CPRA. If that ever ceases to be true, this page changes first.
+Oak and Main Developers LLC operates from California, and this policy is written to meet the
+California Consumer Privacy Act as amended by the CPRA. Because no personal information is collected
+from readers, there is nothing held about a reader to access, correct, delete, or port, and nothing
+is sold or shared — including for cross-context behavioural advertising, which this site does not
+carry. A request under those rights can still be sent to corrections@breachbook.org and will be
+answered stating what is held, which today is nothing. If any of that ever ceases to be true, this
+page changes first.
 
 ## Corrections and contact
 
-To report an error in a published record, see the [corrections policy](/corrections/), which sets
-out how to report one and how corrections are logged.
+To report an error in a published record, write to corrections@breachbook.org. The
+[corrections policy](/corrections/) sets out the standard a correction has to meet and how each one
+is logged.
