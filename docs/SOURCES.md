@@ -88,11 +88,14 @@ than appearing complete.
 
 ## Contact and error reports
 
-Corrections and source disputes are tracked in the project repository at
-[github.com/kevynsgrin-a11y/BreachLedger](https://github.com/kevynsgrin-a11y/BreachLedger) — open an issue with a
-citation to the government or court document that supports the correction. (The repository keeps its original
-name; the site is BreachBook.) This page is the canonical place to find the current correction channel, and a
-dedicated corrections address will be published here when one is in service.
+BreachBook is published by Oak and Main Developers LLC, 2108 N St., Sacramento, CA 95816. See
+[about](/about/) for the publisher of record.
+
+Corrections and source disputes go to **corrections@breachbook.org** — include the page URL and a citation to
+the government or court document that supports the correction. Reports can also be filed in the open as an
+issue at [github.com/kevynsgrin-a11y/BreachLedger](https://github.com/kevynsgrin-a11y/BreachLedger), which
+requires a GitHub account. (The repository keeps its original name; the site is BreachBook.) Security reports
+go to security@breachbook.org.
 
 ## What this site deliberately does not do
 
