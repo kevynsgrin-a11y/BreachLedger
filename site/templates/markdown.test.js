@@ -10,13 +10,14 @@ test('table line without trailing pipe terminates (regression: infinite loop)', 
 
 test('table without separator row renders all rows as body, no fake header', () => {
   const html = renderMarkdown('| a | b |\n| c | d |');
-  assert.ok(!html.includes('<th>'));
+  assert.ok(!html.includes('<th'));
   assert.ok(html.includes('<td>a</td>') && html.includes('<td>c</td>'));
 });
 
-test('table with separator renders thead + tbody', () => {
+test('table with separator renders thead + tbody, with scoped column headers', () => {
   const html = renderMarkdown('| H1 | H2 |\n| --- | --- |\n| x | y |');
-  assert.ok(html.includes('<th>H1</th>'));
+  // scope="col" is what lets a screen reader associate a cell with its header.
+  assert.ok(html.includes('<th scope="col">H1</th>'));
   assert.ok(html.includes('<td>y</td>'));
 });
 

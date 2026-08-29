@@ -4,6 +4,9 @@
 
 const { page } = require('./layout');
 const { escapeHtml } = require('./markdown');
+const { breadcrumbList } = require('./structured-data');
+// Label map only; sector-hub does not require this module, so there is no cycle.
+const { SECTOR_LABEL } = require('./sector-hub');
 const { score } = require('../../packages/severity/score');
 
 const PERMANENCE_LABEL = {
@@ -63,14 +66,37 @@ function severityBlock(breach, dataClassMap) {
     ? `records affected ${escapeHtml(b.scale_modifier.band)}`
     : escapeHtml(b.scale_modifier.band) + ' records';
 
+  // Which components the sources could not support. A reader comparing two
+  // scores needs to know that a low one can measure the completeness of the
+  // government record rather than the breach: HHS, the source behind most
+  // records here, publishes neither a discovery date nor remediation offered,
+  // so those components are unassessable on every record sourced only from it.
+  const unassessable = [
+    b.scale_modifier.unknown ? 'scale, because records affected is not disclosed' : null,
+    b.remediation_gap_modifier.unknown ? `remediation gap, ${b.remediation_gap_modifier.band}` : null,
+    b.notification_lag_modifier.unknown
+      ? 'notification lag, because a discovery or notification date is not disclosed'
+      : null,
+  ].filter(Boolean);
+
+  const limitsNote = unassessable.length
+    ? `<p class="score-limits">${unassessable.length} of the four components could not be assessed from this
+record's sources: ${escapeHtml(unassessable.join('; '))}. The rubric fixes what each scores when the underlying
+fact is not published, so where a component cannot be assessed this total reflects the limits of the government
+record as much as the breach itself. It is not directly comparable with a score whose every component was
+assessable.</p>`
+    : '';
+
   return `
 <h2>Severity score</h2>
 <p class="severity-value">${result.score} out of 100 <span class="severity-rubric">(rubric v${escapeHtml(result.rubric_version)})</span></p>
 <div class="severity-bar"><div class="severity-bar-fill sev-${result.score}"></div></div>
 <p>This score is computed, not assigned. Every component is shown below, and the method is published in full
 on the <a href="/severity/">severity rubric</a>.</p>
+${limitsNote}
 <div class="table-scroll"><table>
-<thead><tr><th>Component</th><th>Basis</th><th>Points</th></tr></thead>
+<caption class="sr-only">Severity score components, their basis, and the points each contributed</caption>
+<thead><tr><th scope="col">Component</th><th scope="col">Basis</th><th scope="col">Points</th></tr></thead>
 <tbody>
 <tr><td>Data classes exposed</td><td>${b.data_class_subtotal.parts.length} class(es)${escapeHtml(capNote)}</td><td>${b.data_class_subtotal.capped}</td></tr>
 <tr><td>Scale</td><td>${scaleText}</td><td>${b.scale_modifier.points}</td></tr>
@@ -78,11 +104,17 @@ on the <a href="/severity/">severity rubric</a>.</p>
 <tr><td>Notification lag</td><td>${lagText}</td><td>${b.notification_lag_modifier.points}</td></tr>
 <tr><td><strong>Total</strong></td><td></td><td><strong>${result.score}</strong></td></tr>
 </tbody></table></div>
-${classRows ? `<h3>Data class weights applied</h3><div class="table-scroll"><table><thead><tr><th>Data class</th><th>Weight</th></tr></thead><tbody>${classRows}</tbody></table></div>` : ''}`;
+${
+    classRows
+      ? `<h3>Data class weights applied</h3><div class="table-scroll"><table>
+<caption class="sr-only">Weight applied to each exposed data class</caption>
+<thead><tr><th scope="col">Data class</th><th scope="col">Weight</th></tr></thead><tbody>${classRows}</tbody></table></div>`
+      : ''
+  }`;
 }
 
 function render(ctx) {
-  const { site, breach, sources, litigation = [], dataClassMap, buildPhase } = ctx;
+  const { site, breach, sources, litigation = [], dataClassMap, hasRemediation = false } = ctx;
 
   const exposed = breach.data_classes_parsed || [];
   const states = breach.states_notified_parsed || [];
@@ -108,7 +140,12 @@ function render(ctx) {
     ['Discovered', fmtDate(breach.discovery_date)],
     ['Reported', fmtDate(breach.notification_date)],
   ]
-    .map(([label, value]) => `<tr><td>${label}</td><td>${value ? escapeHtml(value) : '<span class="not-disclosed">not disclosed</span>'}</td></tr>`)
+    .map(
+      ([label, value]) =>
+        `<tr><th scope="row">${label}</th><td>${
+          value ? escapeHtml(value) : '<span class="not-disclosed">not disclosed</span>'
+        }</td></tr>`
+    )
     .join('');
 
   let lagLine = '';
@@ -132,7 +169,7 @@ offered &mdash; it means the government record does not state it.</p>`;
 
   const related = litigation.filter((l) => l.breach_id === breach.id);
   const litigationBlock = related.length
-    ? `<div class="table-scroll"><table><thead><tr><th>Case</th><th>Court</th><th>Status</th></tr></thead><tbody>${related
+    ? `<div class="table-scroll"><table><caption class="sr-only">Litigation recorded against this breach</caption><thead><tr><th scope="col">Case</th><th scope="col">Court</th><th scope="col">Status</th></tr></thead><tbody>${related
         .map(
           (l) => `<tr><td>${escapeHtml(l.case_name)}</td><td>${escapeHtml(l.court || '')}</td><td>${escapeHtml(l.status || '')}</td></tr>`
         )
@@ -175,7 +212,9 @@ record names the reporting organization and identifies no individual.</p>`
   const nav = [
     breach.sector ? `<a href="/sector/${escapeHtml(breach.sector)}/">All ${escapeHtml(breach.sector)} breaches</a>` : '',
     year ? `<a href="/breaches/${escapeHtml(year)}/">Breaches reported in ${escapeHtml(year)}</a>` : '',
-    buildPhase >= 3 ? `<a href="/breach/${escapeHtml(breach.slug)}/what-to-do/">What to do if you were affected</a>` : '',
+    hasRemediation
+      ? `<a href="/breach/${escapeHtml(breach.slug)}/what-to-do/">What to do if you were notified</a>`
+      : '',
   ].filter(Boolean).join(' &middot; ');
 
   const content = `
@@ -193,7 +232,7 @@ ${severityBlock(breach, dataClassMap)}
 <h2>What was exposed</h2>
 ${
   exposedRows
-    ? `<div class="table-scroll"><table><thead><tr><th>Data class</th><th>Permanence</th></tr></thead><tbody>${exposedRows}</tbody></table></div>
+    ? `<div class="table-scroll"><table><caption class="sr-only">Categories of information exposed, and whether each can be changed</caption><thead><tr><th scope="col">Data class</th><th scope="col">Permanence</th></tr></thead><tbody>${exposedRows}</tbody></table></div>
 <p>Permanence describes whether the exposed information can be changed. A rotatable value such as a password
 can be replaced; a permanent one such as a Social Security number cannot.</p>`
     : `<p>The source record does not enumerate the categories of information involved.</p>`
@@ -203,7 +242,9 @@ can be replaced; a permanent one such as a Social Security number cannot.</p>`
 <p>${recordsText}</p>
 
 <h2>Timeline</h2>
-<div class="table-scroll"><table><tbody>${timelineRows}</tbody></table></div>
+<div class="table-scroll"><table>
+<caption class="sr-only">Timeline of this breach as recorded in its sources</caption>
+<tbody>${timelineRows}</tbody></table></div>
 ${lagLine}
 
 <h2>Remediation offered by the entity</h2>
@@ -224,9 +265,20 @@ ${litigationBlock}
 ${nav ? `<p class="related">${nav}</p>` : ''}
 <p class="corrections-link">Found an error in this record? See the <a href="/corrections/">corrections policy</a>.</p>`;
 
+  // Mirrors the visible breadcrumb above, plus the sector hub the reader can
+  // actually navigate to. Nothing is asserted here that the page does not show.
+  const structuredData = [
+    breadcrumbList(site.origin, [
+      { name: 'Record', path: '/' },
+      ...(breach.sector ? [{ name: SECTOR_LABEL[breach.sector] || breach.sector, path: `/sector/${breach.sector}/` }] : []),
+      { name: breach.entity_name },
+    ]),
+  ];
+
   return page({
     site,
     assets: ctx.assets,
+    structuredData,
     route: `/breach/${breach.slug}`,
     title: `${breach.entity_name} data breach`,
     description: `Government record of the ${breach.entity_name} data breach${

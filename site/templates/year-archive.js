@@ -1,9 +1,10 @@
 const { page } = require('./layout');
 const { escapeHtml } = require('./markdown');
-const { breachRows } = require('./breach-table');
+const { breachRows, paginate, pager, pageCount, pagePath } = require('./breach-table');
+const { breadcrumbList } = require('./structured-data');
 
 function render(ctx) {
-  const { site, year, breaches, years = [] } = ctx;
+  const { site, year, breaches, years = [], page: pageNum = 1 } = ctx;
 
   const sorted = breaches
     .slice()
@@ -18,6 +19,11 @@ function render(ctx) {
     .map((y) => `<a href="/breaches/${escapeHtml(y)}/">${escapeHtml(y)}</a>`)
     .join(' &middot; ');
 
+  const basePath = `/breaches/${year}/`;
+  const totalPages = pageCount(sorted.length);
+  const current = Math.min(Math.max(1, Number(pageNum) || 1), totalPages);
+  const visible = paginate(sorted, current);
+
   const content = `
 <nav class="breadcrumb"><a href="/">Record</a> &rsaquo; ${escapeHtml(year)}</nav>
 
@@ -28,16 +34,29 @@ function render(ctx) {
       : ''
   } Dates reflect when the breach was reported to the government, which is not the same as when it occurred.</p>
 
-${breachRows(sorted)}
+${breachRows(visible, {
+    caption: `Data breaches reported in ${year}${totalPages > 1 ? `, page ${current} of ${totalPages}` : ''}`,
+  })}
+${pager(basePath, current, totalPages)}
 
 ${otherYears ? `<h2>Other years</h2><p class="related">${otherYears}</p>` : ''}`;
 
+  const pageSuffix = current > 1 ? ` — page ${current}` : '';
   return page({
     site,
     assets: ctx.assets,
-    route: `/breaches/${year}`,
-    title: `Data breaches reported in ${year}`,
-    description: `Government records of U.S. data breaches reported in ${year}: entities, records affected, and severity scores, each traced to its source.`,
+    structuredData: [
+      breadcrumbList(site.origin, [
+        { name: 'Record', path: '/' },
+        current > 1 ? { name: year, path: basePath } : null,
+        current > 1 ? { name: `Page ${current}` } : { name: year },
+      ].filter(Boolean)),
+    ],
+    route: pagePath(basePath, current).replace(/\/$/, '') || '/',
+    title: `Data breaches reported in ${year}${pageSuffix}`,
+    description: `Government records of U.S. data breaches reported in ${year}: entities, records affected, and severity scores, each traced to its source.${
+      current > 1 ? ` Page ${current} of ${totalPages}.` : ''
+    }`,
     content,
   });
 }

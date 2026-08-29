@@ -79,22 +79,27 @@ remediation_modules 13). `npm run provision` is idempotent and safe to re-run, b
 Continuous deploys: `.github/workflows/deploy.yml` publishes on every push once the
 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets and the `SITE_ORIGIN` repository variable are set.
 
-The production build ships zero JavaScript, a strict `Content-Security-Policy` via `_headers`, canonical
-URLs, and an SVG favicon. Workers (ingest-cron, api, alerts) are deliberately **not** deployed in Phase 0 —
-there is nothing to ingest yet, and a cron that only throws would be noise. They deploy per-directory with
-`wrangler deploy` starting in Phase 1.
+The production build ships zero executable JavaScript, a strict `Content-Security-Policy` via `_headers`,
+canonical URLs, an XML sitemap, and an SVG favicon. The only `<script>` element on any page is a JSON-LD
+metadata block, which carries no code; `site/build.js` fails the build on any other script tag, and on a
+JSON-LD block whose payload was not escaped (see `site/build-guard.test.js`). Workers (ingest-cron, api,
+alerts) are deliberately **not** deployed — the daily ingest runs from `.github/workflows/ingest.yml` on
+GitHub Actions' own schedule, not from the Worker cron.
 
 ## Build phases
+
+Phases describe the order work was planned in, not a gate on shipping. Where a deliverable turned out not to
+depend on its phase's prerequisites, it shipped early — noted in the table.
 
 | Phase | Days | Scope | Status |
 | --- | --- | --- | --- |
 | 0 | 1–4 | Scaffold, migrations, seed tables, empty-but-valid build | **done** |
-| 1 | 5–12 | HHS OCR ingest (CSV, cleanest source) | pending |
-| 2 | 13–25 | Maine/CA/WA AG ingest, entity resolution, dedupe | pending |
-| 3 | 26–40 | Severity pages, remediation assembly, 51 state-rights pages | pending |
+| 1 | 5–12 | HHS OCR ingest (CSV, cleanest source) | **done** |
+| 2 | 13–25 | Maine/CA/WA AG ingest, entity resolution, dedupe | dedupe **done**; AG parsers pending |
+| 3 | 26–40 | Severity pages, remediation assembly, 51 state-rights pages | **done** — shipped at phase 1: both are assembled from the seeded reference tables and never depended on the phase 2 AG ingest |
 | 4 | 41–58 | CourtListener, settlements, deadline calendar, KV countdowns | pending |
 | 5 | 59–70 | Alerts: double opt-in subscriptions, sector/entity filters | pending |
-| 6 | 71–90 | Texas/SEC parsers, schema.org, sitemaps, IndexNow, monetization | pending |
+| 6 | 71–90 | Texas/SEC parsers, schema.org, sitemaps, IndexNow, monetization | schema.org + sitemap **done**; parsers, IndexNow, monetization pending |
 
 ## Schema notes (deviations from the build spec)
 

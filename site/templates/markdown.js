@@ -106,7 +106,7 @@ function renderMarkdown(md) {
       }
       if (header || body.length) {
         const th = header
-          ? `<thead><tr>${header.map((c) => `<th>${inline(escapeHtml(c))}</th>`).join('')}</tr></thead>`
+          ? `<thead><tr>${header.map((c) => `<th scope="col">${inline(escapeHtml(c))}</th>`).join('')}</tr></thead>`
           : '';
         const trs = body
           .map((r) => `<tr>${r.map((c) => `<td>${inline(escapeHtml(c))}</td>`).join('')}</tr>`)

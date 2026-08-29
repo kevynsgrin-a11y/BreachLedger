@@ -40,7 +40,8 @@ When the rubric changes, the version number changes, and existing scores record 
 <p>The sum of the weights of every data class the breach exposed. Weights reflect permanence: a Social Security
 number cannot be rotated the way a payment card can.</p>
 <div class="table-scroll"><table>
-<thead><tr><th>Data class</th><th>Permanence</th><th>Weight</th></tr></thead>
+<caption class="sr-only">Severity weight for each data class</caption>
+<thead><tr><th scope="col">Data class</th><th scope="col">Permanence</th><th scope="col">Weight</th></tr></thead>
 <tbody>${weightRows}</tbody>
 </table></div>
 
@@ -48,14 +49,16 @@ number cannot be rotated the way a payment card can.</p>
 <p>Log-scaled on the number of records affected. Bands include their lower bound and exclude their upper bound.
 When the record count is undisclosed, this component scores 0 and the breakdown says so.</p>
 <div class="table-scroll"><table>
-<thead><tr><th>Records affected</th><th>Points</th></tr></thead>
+<caption class="sr-only">Scale modifier bands</caption>
+<thead><tr><th scope="col">Records affected</th><th scope="col">Points</th></tr></thead>
 <tbody>${scaleRows}</tbody>
 </table></div>
 
 <h2>Component 3: remediation gap modifier (0&ndash;${rubric.remediation_gap_modifier.max})</h2>
 <p>Scores the gap between what was exposed and what the notifying entity offered affected people.</p>
 <div class="table-scroll"><table>
-<thead><tr><th>Condition</th><th>Points</th></tr></thead>
+<caption class="sr-only">Remediation gap modifier bands</caption>
+<thead><tr><th scope="col">Condition</th><th scope="col">Points</th></tr></thead>
 <tbody>${gapRows}</tbody>
 </table></div>
 
@@ -63,7 +66,8 @@ When the record count is undisclosed, this component scores 0 and the breakdown 
 <p>Days between the entity's stated discovery date and its notification date. When either date is undisclosed,
 this component scores 0 and the breakdown says so.</p>
 <div class="table-scroll"><table>
-<thead><tr><th>Lag</th><th>Points</th></tr></thead>
+<caption class="sr-only">Notification lag modifier bands</caption>
+<thead><tr><th scope="col">Lag</th><th scope="col">Points</th></tr></thead>
 <tbody>${lagRows}</tbody>
 </table></div>
 
