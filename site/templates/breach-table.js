@@ -49,37 +49,104 @@ function pager(basePath, page, totalPages) {
   }</nav>`;
 }
 
+const RECORD_SCALE_MIN = 500;
+const RECORD_SCALE_MAX = 10000000;
+const ALIGNMENT_TEXT = {
+  largest: 'Largest disclosed count among rows shown; graphics aligned left.',
+  newest: 'Latest notification among rows shown; graphics aligned right.',
+  standard: 'Standard row; graphics centered.',
+};
+
+function disclosedNumber(value, maximum = Infinity) {
+  if (typeof value !== 'number' && typeof value !== 'string') return null;
+  if (typeof value === 'string' && !/^\d+(?:\.\d+)?(?:e[+-]?\d+)?$/i.test(value.trim())) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 && number <= maximum ? number : null;
+}
+
+function notificationDay(value) {
+  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value ? value : null;
+}
+
+function listingValues(breaches) {
+  let largest = null;
+  let newest = null;
+  const rows = breaches.map((breach) => {
+    const records = disclosedNumber(breach.records_affected);
+    const severity = disclosedNumber(breach.severity_score, 100);
+    const day = notificationDay(breach.notification_date);
+    if (records !== null && (largest === null || records > largest)) largest = records;
+    if (day !== null && (newest === null || day > newest)) newest = day;
+    return { breach, records, severity, day };
+  });
+  return rows.map((row) => ({
+    ...row,
+    alignment: row.records !== null && row.records === largest
+      ? 'largest'
+      : row.day !== null && row.day === newest ? 'newest' : 'standard',
+  }));
+}
+
+function recordRuler(records) {
+  if (records === null) return '';
+  const bounded = Math.max(RECORD_SCALE_MIN, Math.min(RECORD_SCALE_MAX, records));
+  const fraction = Math.log(bounded / RECORD_SCALE_MIN) / Math.log(RECORD_SCALE_MAX / RECORD_SCALE_MIN);
+  const x = (4 + fraction * 112).toFixed(2);
+  const rangeNote = records < RECORD_SCALE_MIN ? 'Below 500' : records > RECORD_SCALE_MAX ? 'Above 10 million' : '';
+  return `<div class="listing-graphic-slot" aria-hidden="true"><div class="listing-graphic">
+<svg class="listing-record-ruler" viewBox="0 0 120 18" focusable="false">
+<line class="listing-ruler-track" x1="4" y1="12" x2="116" y2="12"/>
+<line class="listing-ruler-track" x1="4" y1="8" x2="4" y2="16"/>
+<line class="listing-ruler-track" x1="116" y1="8" x2="116" y2="16"/>
+<line class="listing-ruler-marker" x1="${x}" y1="2" x2="${x}" y2="16"/>
+</svg>
+<div class="listing-scale-labels"><span>500</span><span>10m</span></div>
+${rangeNote ? `<span class="listing-range-note">${rangeNote}</span>` : ''}
+</div></div>`;
+}
+
+function severityBar(severity) {
+  if (severity === null) return '';
+  // Only the graphic is rounded: the exact disclosed score remains in the cell.
+  return `<div class="listing-graphic-slot" aria-hidden="true"><div class="listing-graphic">
+<span class="listing-score-track"><span class="listing-score-fill sev-${Math.round(severity)}"></span></span>
+<div class="listing-scale-labels"><span>0</span><span>100</span></div>
+</div></div>`;
+}
+
 // `caption` names the table for a screen reader. The visible heading above it
 // already names it for everyone else, so the caption is rendered off-screen
 // rather than duplicated on the page.
-function breachRows(breaches, { showSector = true, caption } = {}) {
+function breachRows(breaches, { showSector = true, caption, dateHeading = 'Reported', numericAlignment = 'right' } = {}) {
   if (!breaches.length) {
     return `<div class="empty-state">No breaches are on the record here yet.</div>`;
   }
   const cap = caption ? `<caption class="sr-only">${escapeHtml(caption)}</caption>` : '';
   const head = `<tr><th scope="col">Entity</th>${
     showSector ? '<th scope="col">Sector</th>' : ''
-  }<th scope="col">Reported</th><th scope="col">Records affected</th><th scope="col">Severity</th></tr>`;
-  const body = breaches
-    .map((b) => {
-      const records =
-        Number.isFinite(Number(b.records_affected)) && b.records_affected != null
-          ? Number(b.records_affected).toLocaleString('en-US') + (b.records_affected_is_est ? ' (est.)' : '')
-          : '<span class="not-disclosed">not disclosed</span>';
-      const severity =
-        Number.isFinite(Number(b.severity_score)) && b.severity_score != null
-          ? `${Number(b.severity_score)} / 100`
-          : '';
-      return `<tr>
-<td><a href="/breach/${escapeHtml(b.slug)}/">${escapeHtml(b.entity_name)}</a></td>
+  }<th scope="col">${escapeHtml(dateHeading)}</th><th scope="col">Records affected</th><th scope="col">Severity</th></tr>`;
+  const numberClass = numericAlignment === 'left' ? 'listing-number' : 'listing-number num';
+  const body = listingValues(breaches)
+    .map(({ breach: b, records, severity, alignment }) => {
+      const recordText = records !== null
+        ? records.toLocaleString('en-US', { maximumFractionDigits: 20 }) + (b.records_affected_is_est ? ' (est.)' : '')
+        : '<span class="not-disclosed">not disclosed</span>';
+      const severityText = severity !== null ? `${severity} / 100` : '<span class="sr-only">not disclosed</span>';
+      return `<tr class="listing-row listing-row--${alignment}">
+<td><a href="/breach/${escapeHtml(b.slug)}/">${escapeHtml(b.entity_name)}</a><span class="sr-only"> ${ALIGNMENT_TEXT[alignment]}</span></td>
 ${showSector ? `<td>${escapeHtml(b.sector || '')}</td>` : ''}
 <td>${escapeHtml(b.notification_date || '')}</td>
-<td class="num">${records}</td>
-<td class="num">${severity}</td>
+<td class="${numberClass}"><span class="listing-value">${recordText}</span>${recordRuler(records)}</td>
+<td class="${numberClass}"><span class="listing-value">${severityText}</span>${severityBar(severity)}</td>
 </tr>`;
     })
     .join('\n');
-  return `<div class="table-scroll"><table>${cap}<thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  return `<p class="listing-legend">Records rulers use a logarithmic scale from 500 to 10 million; severity bars use 0–100.
+Graphics align within the rows shown: largest disclosed count left, latest notification right, others centered.
+Ties share alignment; largest takes precedence.</p>
+<div class="table-scroll listing-scroll" tabindex="0" role="region" aria-label="${escapeHtml(caption || 'Breach records')}"><table class="breach-listing">${cap}<thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 
 module.exports = { breachRows, paginate, pager, pageCount, pagePath, PAGE_SIZE };

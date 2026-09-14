@@ -55,6 +55,13 @@ const PAIRINGS = [
   ['skip link text on its own ground', '--paper', '--ink', 4.5],
   ['code on a panel', '--ink', '--panel', 4.5],
   ['severity bar fill against its track', '--ink-soft', '--panel', 3.0],
+  ['listing ruler marker on the page', '--ink-soft', '--paper', 3.0],
+  ['listing ruler marker on a zebra row', '--ink-soft', '--zebra', 3.0],
+  ['listing ruler track on the page', '--ink-faint', '--paper', 3.0],
+  ['listing ruler track on a zebra row', '--ink-faint', '--zebra', 3.0],
+  ['listing bar outline against its track', '--ink-faint', '--panel', 3.0],
+  ['listing range annotation on a zebra row', '--ink-soft', '--zebra', 4.5],
+  ['browse count on the page', '--ink-soft', '--paper', 4.5],
 ];
 
 for (const [themeName, theme] of [['light', light], ['dark', dark]]) {
@@ -95,4 +102,17 @@ test('the dark theme actually inverts: its ground is darker than its text', () =
 test('the theme follows the system setting and needs no JavaScript', () => {
   // A class-based toggle would need a script, and the site ships none.
   assert.ok(!/\.theme-dark|\[data-theme/.test(CSS), 'theme must not depend on a scripted toggle');
+});
+
+test('listing print overrides stay legible even when printing from dark mode with backgrounds', () => {
+  const printCss = CSS.slice(CSS.indexOf('@media print'));
+  const block = /\.breach-listing,\s*\.listing-legend,\s*\.browse-index\s*\{([^}]+)\}/.exec(printCss);
+  assert.ok(block, 'scoped listing and browse print tokens must exist');
+  const theme = { ...dark, ...tokensIn(block[1]) };
+  for (const foreground of ['--ink', '--ink-soft', '--ink-faint']) {
+    for (const background of ['--paper', '--panel', '--zebra']) {
+      assert.ok(contrast(theme[foreground], theme[background]) >= 4.5, `${foreground} on ${background} must stay readable in print`);
+    }
+  }
+  assert.match(printCss, /\.listing-score-fill\s*\{[^}]*border-top:[^}]*solid currentColor/);
 });

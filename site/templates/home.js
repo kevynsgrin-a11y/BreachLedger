@@ -2,6 +2,7 @@ const { page } = require('./layout');
 const { escapeHtml } = require('./markdown');
 const { dataset } = require('./structured-data');
 const { SECTOR_LABEL } = require('./sector-hub');
+const { breachRows } = require('./breach-table');
 
 function render(ctx) {
   const { site, breaches, litigation } = ctx;
@@ -12,20 +13,11 @@ function render(ctx) {
     .slice(0, 25);
 
   const breachTable = recent.length
-    ? `<div class="table-scroll"><table>
-<caption class="sr-only">The ${recent.length} most recently reported breaches on the record</caption>
-<thead><tr><th scope="col">Entity</th><th scope="col">Sector</th><th scope="col">Notification date</th><th scope="col">Records affected</th><th scope="col">Severity</th></tr></thead>
-<tbody>${recent
-        .map(
-          (b) => `<tr>
-<td><a href="/breach/${escapeHtml(b.slug)}">${escapeHtml(b.entity_name)}</a></td>
-<td>${escapeHtml(b.sector || '')}</td>
-<td>${escapeHtml(b.notification_date || '')}</td>
-<td>${Number.isFinite(Number(b.records_affected)) && b.records_affected != null ? Number(b.records_affected).toLocaleString('en-US') + (b.records_affected_is_est ? ' (est.)' : '') : 'not disclosed'}</td>
-<td>${Number.isFinite(Number(b.severity_score)) && b.severity_score != null ? `${Number(b.severity_score)} / 100` : ''}</td>
-</tr>`
-        )
-        .join('\n')}</tbody></table></div>`
+    ? breachRows(recent, {
+        caption: `The ${recent.length} most recently reported breaches on the record`,
+        dateHeading: 'Notification date',
+        numericAlignment: 'left',
+      })
     : `<div class="empty-state">No breach records are published yet. Every record published here will cite its
 government or court source. See <a href="/sources/">sources and methodology</a>.</div>`;
 
