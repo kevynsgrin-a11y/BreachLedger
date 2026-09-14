@@ -1,0 +1,1611 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>BreachBook severity encoding bake-off</title>
+  <meta name="description" content="Six static severity encodings compared against the same six BreachBook records.">
+  <style>
+    :root {
+      --ink: #1c1e21;
+      --ink-soft: #4a4e54;
+      --ink-faint: #686d74;
+      --paper: #fbfbfa;
+      --panel: #f2f2ef;
+      --zebra: #f7f7f5;
+      --rule: #d6d6d1;
+      --accent: #2b5b84;
+      --deadline-amber: #92610c;
+      --serif: Georgia, "Times New Roman", serif;
+      --sans: system-ui, -apple-system, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #ececea;
+        --ink-soft: #b8bcc2;
+        --ink-faint: #8a8f96;
+        --paper: #1a1b1d;
+        --panel: #232427;
+        --zebra: #202124;
+        --rule: #3a3b3e;
+        --accent: #6ea3cf;
+        --deadline-amber: #d9a441;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--paper);
+    }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    h1,
+    h2,
+    h3 {
+      font-family: var(--serif);
+      font-weight: 600;
+      line-height: 1.2;
+      text-wrap: balance;
+    }
+
+    h1 {
+      max-width: 18ch;
+      margin: 0;
+      font-size: 2.5rem;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 1.65rem;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 1.08rem;
+    }
+
+    p {
+      margin: 0;
+      text-wrap: pretty;
+    }
+
+    a {
+      color: var(--accent);
+      text-underline-offset: 0.16em;
+    }
+
+    strong,
+    .tabular {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .sheet-header,
+    main,
+    .sheet-footer {
+      width: min(100% - 2rem, 76rem);
+      margin-inline: auto;
+    }
+
+    .sheet-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 2rem;
+      padding-block: 2.5rem 1.5rem;
+      border-bottom: 3px double var(--ink);
+    }
+
+    .sheet-kicker {
+      margin-bottom: 0.45rem;
+      color: var(--ink-soft);
+      font-family: var(--serif);
+      font-size: 1rem;
+    }
+
+    .sheet-meta {
+      max-width: 25rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    main {
+      padding-bottom: 4rem;
+    }
+
+    .introduction {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr);
+      gap: 2rem;
+      padding-block: 1.5rem 2rem;
+    }
+
+    .introduction p {
+      max-width: 64rem;
+    }
+
+    .method-note {
+      padding-left: 1rem;
+      border-left: 2px solid var(--ink-soft);
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .shared-reference {
+      padding-block: 1.5rem 2.5rem;
+      border-top: 1px solid var(--rule);
+    }
+
+    .section-heading {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1.5rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .section-heading p {
+      max-width: 40rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .theory-ruler {
+      margin-block: 1rem 1.25rem;
+    }
+
+    .theory-track {
+      display: grid;
+      grid-template-columns: repeat(100, minmax(0, 1fr));
+      align-items: center;
+      height: 1rem;
+      border: 1px solid var(--ink-soft);
+      background: var(--panel);
+    }
+
+    .theory-observed {
+      grid-column: 23 / 35;
+      height: 100%;
+      background: var(--ink-soft);
+    }
+
+    .axis-endpoints,
+    .axis-three {
+      display: flex;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 0.25rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .axis-three span:nth-child(2) {
+      text-align: center;
+    }
+
+    .table-wrap {
+      width: 100%;
+      overflow-x: auto;
+      margin-top: 0.75rem;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    table.data-table {
+      min-width: 68rem;
+      table-layout: fixed;
+    }
+
+    table.combined-table {
+      min-width: 62rem;
+    }
+
+    table.distribution-table {
+      min-width: 42rem;
+    }
+
+    caption {
+      text-align: left;
+    }
+
+    th,
+    td {
+      padding: 0.55rem 0.65rem;
+      border: 1px solid var(--rule);
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      background: var(--panel);
+      color: var(--ink-soft);
+      font-weight: 650;
+    }
+
+    tbody tr:nth-child(even) {
+      background: var(--zebra);
+    }
+
+    td.entity {
+      font-family: var(--serif);
+      font-weight: 600;
+    }
+
+    td.date,
+    td.numeric {
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    td.numeric {
+      text-align: right;
+    }
+
+    .col-entity {
+      width: 25%;
+    }
+
+    .col-date {
+      width: 13%;
+    }
+
+    .col-records {
+      width: 22%;
+    }
+
+    .col-severity {
+      width: 40%;
+    }
+
+    .col-combined {
+      width: 62%;
+    }
+
+    .frequency-cell {
+      width: 42%;
+    }
+
+    .frequency-track {
+      height: 0.8rem;
+      border: 1px solid var(--ink-soft);
+      background: var(--panel);
+    }
+
+    .frequency-fill {
+      height: 100%;
+      background: var(--ink-soft);
+    }
+
+    .freq-18 {
+      width: 40.91%;
+    }
+
+    .freq-44 {
+      width: 100%;
+    }
+
+    .freq-19 {
+      width: 43.18%;
+    }
+
+    .freq-7 {
+      width: 15.91%;
+    }
+
+    .freq-2 {
+      width: 4.55%;
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .variant {
+      padding-block: 2.5rem 3rem;
+      border-top: 2px solid var(--ink);
+    }
+
+    .variant-title {
+      display: grid;
+      grid-template-columns: 7rem minmax(0, 1fr);
+      align-items: baseline;
+      gap: 1rem;
+      margin-bottom: 0.6rem;
+    }
+
+    .variant-number {
+      color: var(--ink-soft);
+      font-family: var(--serif);
+      font-size: 1.1rem;
+    }
+
+    .variant-summary {
+      max-width: 60rem;
+      margin-left: 8rem;
+      color: var(--ink-soft);
+    }
+
+    .context-heading {
+      margin-top: 1.75rem;
+      padding-bottom: 0.4rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .detail-example {
+      margin-top: 0.75rem;
+      padding-block: 1.25rem 1.5rem;
+      border-block: 1px solid var(--rule);
+    }
+
+    .detail-example > h2 {
+      margin-bottom: 0.85rem;
+      font-size: 1.35rem;
+    }
+
+    .detail-score-line {
+      display: flex;
+      align-items: baseline;
+      flex-wrap: wrap;
+      gap: 0.45rem 1rem;
+      margin-bottom: 0.75rem;
+    }
+
+    .detail-score {
+      font-family: var(--serif);
+      font-size: 2rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .denominator {
+      color: var(--ink-soft);
+      font-family: var(--sans);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .supporting-copy {
+      max-width: 58rem;
+      margin-top: 0.75rem;
+      color: var(--ink-soft);
+    }
+
+    .component-table {
+      min-width: 48rem;
+      margin-top: 1rem;
+    }
+
+    .component-table th:last-child,
+    .component-table td:last-child,
+    .component-table th:nth-last-child(2),
+    .component-table td:nth-last-child(2) {
+      text-align: right;
+    }
+
+    .not-assessed-text {
+      color: var(--ink-faint);
+      font-style: italic;
+    }
+
+    .variant-caption {
+      margin-top: 1rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--rule);
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .variant-caption strong {
+      color: var(--ink);
+    }
+
+    .assessability {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .assess-meter,
+    .quad-marker {
+      display: inline-grid;
+      grid-template-columns: repeat(4, 0.65rem);
+      gap: 0.16rem;
+    }
+
+    .assess-meter span,
+    .quad-marker span {
+      width: 0.65rem;
+      height: 0.65rem;
+      border: 1px solid var(--ink-soft);
+    }
+
+    .assess-meter .assessed,
+    .quad-marker .assessed {
+      background: var(--ink-soft);
+    }
+
+    .assess-meter .unassessed,
+    .quad-marker .unassessed,
+    .unassessed-pattern {
+      background-color: var(--panel);
+      background-image: repeating-linear-gradient(
+        135deg,
+        transparent 0,
+        transparent 2px,
+        var(--ink-faint) 2px,
+        var(--ink-faint) 3px
+      );
+    }
+
+    .record-ruler {
+      width: 100%;
+      max-width: 10rem;
+      margin-top: 0.25rem;
+    }
+
+    .record-track {
+      position: relative;
+      height: 0.85rem;
+      border-bottom: 2px solid var(--ink-soft);
+    }
+
+    .record-pin {
+      position: absolute;
+      bottom: -0.28rem;
+      width: 0.5rem;
+      height: 0.8rem;
+      border: 1px solid var(--paper);
+      background: var(--ink-soft);
+      transform: translateX(-50%);
+    }
+
+    .record-scale-labels {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.25rem;
+      color: var(--ink-faint);
+      font-size: 0.875rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .record-pos-501 {
+      left: 1%;
+    }
+
+    .record-pos-1408 {
+      left: 10.5%;
+    }
+
+    .record-pos-5194 {
+      left: 23.6%;
+    }
+
+    .record-pos-45853 {
+      left: 45.6%;
+    }
+
+    .record-pos-108487 {
+      left: 54.3%;
+    }
+
+    .record-pos-4115802 {
+      left: 91%;
+    }
+
+    .score-readout {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .score-readout strong {
+      font-family: var(--serif);
+      font-size: 1.05rem;
+    }
+
+    .score-readout span {
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .context-bar {
+      position: relative;
+      height: 0.8rem;
+      border: 1px solid var(--ink-soft);
+      background: var(--panel);
+    }
+
+    .context-bar.large {
+      max-width: 42rem;
+      height: 1.05rem;
+    }
+
+    .score-fill {
+      height: 100%;
+      background: var(--ink-soft);
+    }
+
+    .sev-22 {
+      width: 22%;
+    }
+
+    .sev-25 {
+      width: 25%;
+    }
+
+    .sev-28 {
+      width: 28%;
+    }
+
+    .sev-31 {
+      width: 31%;
+    }
+
+    .sev-34 {
+      width: 34%;
+    }
+
+    .observed-window {
+      position: absolute;
+      inset-block: -0.27rem;
+      left: 22%;
+      width: 12%;
+      border: 1px solid var(--ink);
+    }
+
+    .encoding-meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.35rem 1rem;
+      margin-top: 0.45rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .component-rail {
+      display: flex;
+      width: 100%;
+      height: 1.15rem;
+      overflow: hidden;
+      border: 1px solid var(--ink-soft);
+      background: var(--panel);
+    }
+
+    .component-rail.large {
+      max-width: 48rem;
+      height: 2rem;
+    }
+
+    .component-segment {
+      position: relative;
+      height: 100%;
+      border-right: 1px solid var(--ink-soft);
+    }
+
+    .component-segment:last-child {
+      border-right: 0;
+    }
+
+    .component-segment.is-assessed {
+      border-bottom: 3px solid var(--ink-soft);
+    }
+
+    .capacity-data {
+      flex: 0 0 70%;
+    }
+
+    .capacity-scale {
+      flex: 0 0 15%;
+    }
+
+    .capacity-remediation {
+      flex: 0 0 10%;
+    }
+
+    .capacity-lag {
+      flex: 0 0 5%;
+    }
+
+    .earned {
+      height: 100%;
+      background: var(--ink-soft);
+    }
+
+    .earned-data-22 {
+      width: 31.43%;
+    }
+
+    .earned-scale-0 {
+      width: 0;
+    }
+
+    .earned-scale-3 {
+      width: 20%;
+    }
+
+    .earned-scale-6 {
+      width: 40%;
+    }
+
+    .earned-scale-9 {
+      width: 60%;
+    }
+
+    .earned-scale-12 {
+      width: 80%;
+    }
+
+    .rail-legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+      gap: 0.65rem;
+      max-width: 48rem;
+      margin-top: 0.55rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .rail-legend span {
+      padding-left: 0.5rem;
+      border-left: 2px solid var(--ink-soft);
+    }
+
+    .density-readout {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .density-readout strong {
+      color: var(--ink);
+      font-family: var(--serif);
+      font-size: 1.05rem;
+    }
+
+    .density-rug {
+      position: relative;
+      height: 2.75rem;
+      margin-top: 0.25rem;
+      border-bottom: 2px solid var(--ink-soft);
+    }
+
+    .density-rug.large {
+      width: 100%;
+      max-width: 58rem;
+      height: 8rem;
+      margin-top: 0.75rem;
+    }
+
+    .density-stack {
+      position: absolute;
+      bottom: 0;
+      width: 0.25rem;
+      min-height: 0.25rem;
+      background: var(--ink-faint);
+      transform: translateX(-50%);
+    }
+
+    .density-rug.large .density-stack {
+      width: 0.6rem;
+    }
+
+    .density-current {
+      position: absolute;
+      bottom: -0.18rem;
+      height: calc(100% + 0.35rem);
+      border-left: 2px solid var(--ink);
+    }
+
+    .score-pos-22 {
+      left: 22%;
+    }
+
+    .score-pos-25 {
+      left: 25%;
+    }
+
+    .score-pos-28 {
+      left: 28%;
+    }
+
+    .score-pos-31 {
+      left: 31%;
+    }
+
+    .score-pos-34 {
+      left: 34%;
+    }
+
+    .density-18 {
+      height: 41%;
+    }
+
+    .density-44 {
+      height: 100%;
+    }
+
+    .density-19 {
+      height: 43%;
+    }
+
+    .density-7 {
+      height: 16%;
+    }
+
+    .density-2 {
+      height: 5%;
+    }
+
+    .density-key {
+      max-width: 58rem;
+      margin-top: 0.35rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .combined-readout {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .combined-readout strong {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+    }
+
+    .combined-readout span {
+      color: var(--ink-soft);
+    }
+
+    .magnitude-spine {
+      position: relative;
+      height: 1.4rem;
+      margin-top: 0.25rem;
+      border-bottom: 2px solid var(--ink-soft);
+    }
+
+    .magnitude-spine.large {
+      max-width: 58rem;
+      height: 3rem;
+      margin-top: 1rem;
+    }
+
+    .spine-tick {
+      position: absolute;
+      bottom: -0.32rem;
+      height: 0.62rem;
+      border-left: 1px solid var(--ink-soft);
+    }
+
+    .log-pos-10000 {
+      left: 30.2%;
+    }
+
+    .log-pos-100000 {
+      left: 53.5%;
+    }
+
+    .log-pos-1000000 {
+      left: 76.7%;
+    }
+
+    .spine-marker {
+      position: absolute;
+      bottom: -0.43rem;
+      transform: translateX(-50%);
+    }
+
+    .spine-marker .quad-marker {
+      grid-template-columns: repeat(2, 0.48rem);
+      gap: 0.08rem;
+      padding: 0.1rem;
+      background: var(--paper);
+      outline: 1px solid var(--ink);
+    }
+
+    .spine-marker .quad-marker span {
+      width: 0.48rem;
+      height: 0.48rem;
+    }
+
+    .spine-scale-labels {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      max-width: 58rem;
+      margin-top: 0.35rem;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .spine-scale-labels span:nth-child(2),
+    .spine-scale-labels span:nth-child(3),
+    .spine-scale-labels span:nth-child(4) {
+      text-align: center;
+    }
+
+    .spine-scale-labels span:last-child {
+      text-align: right;
+    }
+
+    .type-pair {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1.25rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .type-count,
+    .type-score {
+      line-height: 1.15;
+    }
+
+    .type-count {
+      font-family: var(--sans);
+    }
+
+    .type-score {
+      font-family: var(--serif);
+    }
+
+    .magnitude-type-1 {
+      font-size: 1rem;
+      font-weight: 400;
+    }
+
+    .magnitude-type-2 {
+      font-size: 1.08rem;
+      font-weight: 500;
+    }
+
+    .magnitude-type-3 {
+      font-size: 1.16rem;
+      font-weight: 550;
+    }
+
+    .magnitude-type-4 {
+      font-size: 1.24rem;
+      font-weight: 650;
+    }
+
+    .magnitude-type-5 {
+      font-size: 1.34rem;
+      font-weight: 750;
+    }
+
+    .score-type-22 {
+      font-size: 1rem;
+      font-weight: 400;
+    }
+
+    .score-type-25 {
+      font-size: 1.05rem;
+      font-weight: 450;
+    }
+
+    .score-type-28 {
+      font-size: 1.1rem;
+      font-weight: 520;
+    }
+
+    .score-type-31 {
+      font-size: 1.15rem;
+      font-weight: 620;
+    }
+
+    .score-type-34 {
+      font-size: 1.2rem;
+      font-weight: 720;
+    }
+
+    .type-completeness {
+      display: flex;
+      gap: 0.2rem;
+      margin-top: 0.45rem;
+    }
+
+    .type-completeness span {
+      width: 25%;
+      height: 0.3rem;
+      border: 1px solid var(--ink-soft);
+    }
+
+    .type-completeness .assessed {
+      background: var(--ink-soft);
+    }
+
+    .type-completeness .unassessed {
+      background-color: var(--panel);
+      background-image: repeating-linear-gradient(
+        135deg,
+        transparent 0,
+        transparent 2px,
+        var(--ink-faint) 2px,
+        var(--ink-faint) 3px
+      );
+    }
+
+    .type-hero {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 2rem;
+      max-width: 58rem;
+      padding-block: 0.5rem 1rem;
+      border-bottom: 1px solid var(--ink-soft);
+    }
+
+    .type-hero-block {
+      display: flex;
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+
+    .type-hero-label {
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+    }
+
+    .type-hero .type-count {
+      font-size: 3rem;
+      font-weight: 750;
+    }
+
+    .type-hero .type-score {
+      font-size: 2.5rem;
+      font-weight: 720;
+    }
+
+    .component-ledger {
+      max-width: 58rem;
+      margin-block: 1rem 0;
+      border-top: 1px solid var(--rule);
+    }
+
+    .component-ledger > div {
+      display: grid;
+      grid-template-columns: minmax(12rem, 1.4fr) minmax(18rem, 2fr) 5rem;
+      gap: 1rem;
+      padding-block: 0.55rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .component-ledger dt,
+    .component-ledger dd {
+      margin: 0;
+    }
+
+    .component-ledger dd:last-child {
+      text-align: right;
+      font-family: var(--serif);
+      font-size: 1.05rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .matrix-readout {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .matrix-readout strong {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+    }
+
+    .matrix-readout span {
+      color: var(--ink-soft);
+    }
+
+    .matrix-plot {
+      position: relative;
+      height: 4.4rem;
+      margin: 0.35rem 0.5rem 1.2rem 1.4rem;
+      border-left: 2px solid var(--ink-soft);
+      border-bottom: 2px solid var(--ink-soft);
+    }
+
+    .matrix-plot.large {
+      width: calc(100% - 3.5rem);
+      max-width: 58rem;
+      height: 15rem;
+      margin: 1rem 0.5rem 2rem 3.5rem;
+    }
+
+    .matrix-grid-line {
+      position: absolute;
+      background: var(--rule);
+    }
+
+    .matrix-grid-line.horizontal {
+      left: 0;
+      width: 100%;
+      height: 1px;
+    }
+
+    .matrix-grid-line.vertical {
+      bottom: 0;
+      width: 1px;
+      height: 100%;
+    }
+
+    .grid-25 {
+      bottom: 25%;
+    }
+
+    .grid-50 {
+      bottom: 50%;
+    }
+
+    .grid-75 {
+      bottom: 75%;
+    }
+
+    .grid-x-10000 {
+      left: 30.2%;
+    }
+
+    .grid-x-100000 {
+      left: 53.5%;
+    }
+
+    .grid-x-1000000 {
+      left: 76.7%;
+    }
+
+    .matrix-point {
+      position: absolute;
+      transform: translate(-50%, 50%);
+    }
+
+    .matrix-point .quad-marker {
+      grid-template-columns: repeat(2, 0.5rem);
+      gap: 0.08rem;
+      padding: 0.12rem;
+      background: var(--paper);
+      outline: 1px solid var(--ink);
+    }
+
+    .matrix-point .quad-marker span {
+      width: 0.5rem;
+      height: 0.5rem;
+    }
+
+    .matrix-x-501 {
+      left: 2%;
+    }
+
+    .matrix-x-1408 {
+      left: 10.5%;
+    }
+
+    .matrix-x-5194 {
+      left: 23.6%;
+    }
+
+    .matrix-x-45853 {
+      left: 45.6%;
+    }
+
+    .matrix-x-108487 {
+      left: 54.3%;
+    }
+
+    .matrix-x-4115802 {
+      left: 91%;
+    }
+
+    .matrix-y-22 {
+      bottom: 22%;
+    }
+
+    .matrix-y-25 {
+      bottom: 25%;
+    }
+
+    .matrix-y-28 {
+      bottom: 28%;
+    }
+
+    .matrix-y-31 {
+      bottom: 31%;
+    }
+
+    .matrix-y-34 {
+      bottom: 34%;
+    }
+
+    .matrix-axis-label {
+      position: absolute;
+      color: var(--ink-soft);
+      font-size: 0.875rem;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .matrix-y-top {
+      top: -0.7rem;
+      left: -2.8rem;
+    }
+
+    .matrix-y-mid {
+      top: calc(50% - 0.7rem);
+      left: -2.4rem;
+    }
+
+    .matrix-y-bottom {
+      bottom: -0.7rem;
+      left: -1.7rem;
+    }
+
+    .matrix-x-start {
+      bottom: -1.65rem;
+      left: 0;
+    }
+
+    .matrix-x-end {
+      right: 0;
+      bottom: -1.65rem;
+    }
+
+    .matrix-axis-title-y {
+      top: 42%;
+      left: -3.45rem;
+      transform: rotate(-90deg);
+    }
+
+    .matrix-axis-title-x {
+      right: 0;
+      bottom: -1.65rem;
+    }
+
+    .recommendation {
+      padding-block: 2.25rem 1rem;
+      border-top: 3px double var(--ink);
+    }
+
+    .recommendation p {
+      max-width: 62rem;
+      margin-top: 0.65rem;
+    }
+
+    .sheet-footer {
+      padding-block: 1rem 2.5rem;
+      border-top: 1px solid var(--rule);
+      color: var(--ink-faint);
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 46rem) {
+      .sheet-header,
+      .introduction,
+      .section-heading,
+      .type-hero {
+        align-items: start;
+        grid-template-columns: 1fr;
+        flex-direction: column;
+      }
+
+      .sheet-header {
+        display: flex;
+      }
+
+      h1 {
+        font-size: 2rem;
+      }
+
+      .variant-title {
+        grid-template-columns: 1fr;
+        gap: 0.2rem;
+      }
+
+      .variant-summary {
+        margin-left: 0;
+      }
+
+      .component-ledger > div {
+        grid-template-columns: minmax(10rem, 1fr) minmax(14rem, 1.5fr) 4rem;
+      }
+
+      .type-hero .type-count {
+        font-size: 2.25rem;
+      }
+
+      .type-hero .type-score {
+        font-size: 2rem;
+      }
+    }
+
+    @media print {
+      :root {
+        --accent: var(--ink);
+        --deadline-amber: var(--ink);
+      }
+
+      * {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
+
+      body {
+        font-size: 10pt;
+      }
+
+      .sheet-header,
+      main,
+      .sheet-footer {
+        width: 100%;
+      }
+
+      .sheet-header {
+        padding-top: 0;
+      }
+
+      .table-wrap {
+        overflow: visible;
+      }
+
+      table.data-table,
+      table.combined-table,
+      table.distribution-table,
+      .component-table {
+        min-width: 0;
+        font-size: 8pt;
+      }
+
+      th,
+      td {
+        padding: 0.28rem 0.35rem;
+      }
+
+      .variant {
+        break-before: page;
+      }
+
+      tr,
+      .detail-example,
+      .variant-caption {
+        break-inside: avoid;
+      }
+
+      .sheet-footer {
+        padding-bottom: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="sheet-header">
+    <div>
+      <p class="sheet-kicker">BreachBook comparison sheet</p>
+      <h1>Severity encoding bake-off</h1>
+    </div>
+    <p class="sheet-meta">Six static treatments of one record set. Scores use rubric v1.1; the observed distribution is a random sample of 90 records from the 7,855-record archive.</p>
+  </header>
+
+  <main>
+    <section class="introduction" aria-labelledby="comparison-purpose">
+      <div>
+        <h2 id="comparison-purpose">The presentation problem</h2>
+        <p>Every sampled score is 22 plus a scale band, while remediation and notification lag are unassessable from the source. The treatments below keep the honest denominator, make the narrow present-day range legible, distinguish missing assessment from earned zero, and leave room for future scores across the full rubric.</p>
+      </div>
+      <p class="method-note">The supplied register is used without additions. No new color value or hue is introduced; solid, hatched, positional, numeric, and textual cues carry meaning in light mode, dark mode, and monochrome print.</p>
+    </section>
+
+    <section class="shared-reference" aria-labelledby="distribution-title">
+      <div class="section-heading">
+        <h2 id="distribution-title">Shared reference: observed distribution</h2>
+        <p>The full 0–100 ruler shows how little of the theoretical scale the archive currently occupies.</p>
+      </div>
+
+      <div class="theory-ruler" role="img" aria-label="The observed archive range runs from 22 to 34 on a theoretical scale from 0 to 100.">
+        <div class="theory-track" aria-hidden="true"><span class="theory-observed"></span></div>
+        <div class="axis-three" aria-hidden="true"><span>0</span><span>Observed range 22–34</span><span>100</span></div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="distribution-table">
+          <caption class="sr-only">Observed severity score frequencies in the 90-record sample</caption>
+          <thead>
+            <tr><th scope="col">Score</th><th scope="col">Scale band represented</th><th scope="col">Records</th><th scope="col">Frequency</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="numeric">22 / 100</td><td>Under 1,000 affected</td><td class="numeric">18</td><td class="frequency-cell"><div class="frequency-track" aria-hidden="true"><div class="frequency-fill freq-18"></div></div></td></tr>
+            <tr><td class="numeric">25 / 100</td><td>1,000–9,999 affected</td><td class="numeric">44</td><td class="frequency-cell"><div class="frequency-track" aria-hidden="true"><div class="frequency-fill freq-44"></div></div></td></tr>
+            <tr><td class="numeric">28 / 100</td><td>10,000–99,999 affected</td><td class="numeric">19</td><td class="frequency-cell"><div class="frequency-track" aria-hidden="true"><div class="frequency-fill freq-19"></div></div></td></tr>
+            <tr><td class="numeric">31 / 100</td><td>100,000–999,999 affected</td><td class="numeric">7</td><td class="frequency-cell"><div class="frequency-track" aria-hidden="true"><div class="frequency-fill freq-7"></div></div></td></tr>
+            <tr><td class="numeric">34 / 100</td><td>1,000,000 or more affected</td><td class="numeric">2</td><td class="frequency-cell"><div class="frequency-track" aria-hidden="true"><div class="frequency-fill freq-2"></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="variant" aria-labelledby="variant-1-title">
+      <div class="variant-title">
+        <span class="variant-number">Variant 1</span>
+        <h2 id="variant-1-title">Contextualized linear bar</h2>
+      </div>
+      <p class="variant-summary">The deliberately conservative option: retain the current bar, outline today’s observed 22–34 window, and add archive position plus a four-part assessability mark.</p>
+
+      <h3 class="context-heading">Table context</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <caption class="sr-only">Contextualized linear severity bars for six breach records</caption>
+          <colgroup><col class="col-entity"><col class="col-date"><col class="col-records"><col class="col-severity"></colgroup>
+          <thead><tr><th scope="col">Entity</th><th scope="col">Notification date</th><th scope="col">Records affected</th><th scope="col">Severity</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="entity">AnMed Health</td><td class="date">2026-08-27</td>
+              <td><strong>501</strong><div class="record-ruler" role="img" aria-label="501 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-501"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td>
+              <td><div class="score-readout"><strong>22 / 100</strong><span>Observed band 1 of 5</span></div><div class="context-bar" aria-hidden="true"><div class="score-fill sev-22"></div><span class="observed-window"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td>
+            </tr>
+            <tr>
+              <td class="entity">White River Junction VA Medical Center</td><td class="date">2026-08-28</td>
+              <td><strong>1,408</strong><div class="record-ruler" role="img" aria-label="1,408 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-1408"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td>
+              <td><div class="score-readout"><strong>25 / 100</strong><span>Observed band 2 of 5</span></div><div class="context-bar" aria-hidden="true"><div class="score-fill sev-25"></div><span class="observed-window"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td>
+            </tr>
+            <tr>
+              <td class="entity">Life Bridges, Inc.</td><td class="date">2026-08-20</td>
+              <td><strong>5,194</strong><div class="record-ruler" role="img" aria-label="5,194 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-5194"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td>
+              <td><div class="score-readout"><strong>25 / 100</strong><span>Observed band 2 of 5</span></div><div class="context-bar" aria-hidden="true"><div class="score-fill sev-25"></div><span class="observed-window"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td>
+            </tr>
+            <tr>
+              <td class="entity">Hawaii Dental Group, Inc. dba Hawaii Family Dental</td><td class="date">2026-08-21</td>
+              <td><strong>45,853</strong><div class="record-ruler" role="img" aria-label="45,853 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-45853"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td>
+              <td><div class="score-readout"><strong>28 / 100</strong><span>Observed band 3 of 5</span></div><div class="context-bar" aria-hidden="true"><div class="score-fill sev-28"></div><span class="observed-window"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td>
+            </tr>
+            <tr>
+              <td class="entity">Midwest Spine &amp; Brain Institute</td><td class="date">2026-08-14</td>
+              <td><strong>108,487</strong><div class="record-ruler" role="img" aria-label="108,487 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-108487"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td>
+              <td><div class="score-readout"><strong>31 / 100</strong><span>Observed band 4 of 5</span></div><div class="context-bar" aria-hidden="true"><div class="score-fill sev-31"></div><span class="observed-window"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td>
+            </tr>
+            <tr>
+              <td class="entity">AdaptHealth, LLC</td><td class="date">2026-08-14</td>
+              <td><strong>4,115,802</strong><div class="record-ruler" role="img" aria-label="4,115,802 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-4115802"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td>
+              <td><div class="score-readout"><strong>34 / 100</strong><span>Observed band 5 of 5</span></div><div class="context-bar" aria-hidden="true"><div class="score-fill sev-34"></div><span class="observed-window"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="context-heading">Detail-page context: AdaptHealth, LLC</h3>
+      <div class="detail-example">
+        <h2>Severity score</h2>
+        <div class="detail-score-line"><span class="detail-score">34 <span class="denominator">/ 100</span></span><strong>Highest of five observed score bands</strong></div>
+        <div class="context-bar large" role="img" aria-label="Severity 34 out of 100; the current archive occupies scores 22 through 34"><div class="score-fill sev-34"></div><span class="observed-window"></span></div>
+        <div class="axis-endpoints" aria-hidden="true"><span>0</span><span>100</span></div>
+        <div class="encoding-meta"><span>Observed archive window: 22–34</span><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 components assessed</span></div>
+        <p class="supporting-copy">The solid cells are data class and scale. The hatched cells are remediation gap and notification lag, which the source did not allow the rubric to assess.</p>
+        <div class="table-wrap"><table class="component-table"><caption class="sr-only">AdaptHealth severity component breakdown</caption><thead><tr><th scope="col">Component</th><th scope="col">Basis</th><th scope="col">Assessment</th><th scope="col">Points</th></tr></thead><tbody><tr><td>Data classes exposed</td><td>Medical records or diagnoses</td><td>Assessed</td><td>22</td></tr><tr><td>Scale</td><td>4,115,802 records affected</td><td>Assessed</td><td>12</td></tr><tr><td>Remediation gap</td><td>Not reported by this source</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td>Notification lag</td><td>Discovery or notification date not disclosed</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td><strong>Total</strong></td><td></td><td>2 of 4 assessed</td><td><strong>34</strong></td></tr></tbody></table></div>
+      </div>
+      <p class="variant-caption"><strong>Idea:</strong> preserve the familiar 0–100 bar but frame its current archive window. <strong>Discriminates:</strong> observed band and score remain immediately comparable. <strong>Sacrifice:</strong> the fill still devotes most of its length to unused theoretical range. <strong>Assessability:</strong> two solid and two hatched cells sit beside every score. <strong>Print:</strong> length, outline, hatch, and text survive monochrome. <strong>Column treatment:</strong> two encodings; records retain a separate logarithmic ruler because count must remain useful when future score components diverge.</p>
+    </section>
+
+    <section class="variant" aria-labelledby="variant-2-title">
+      <div class="variant-title"><span class="variant-number">Variant 2</span><h2 id="variant-2-title">Rubric-capacity rail</h2></div>
+      <p class="variant-summary">Divide the 100-point capacity into its four weighted components, show earned points inside assessed segments, and hatch segments the source could not assess.</p>
+
+      <h3 class="context-heading">Table context</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <caption class="sr-only">Rubric-capacity rails for six breach records</caption>
+          <colgroup><col class="col-entity"><col class="col-date"><col class="col-records"><col class="col-severity"></colgroup>
+          <thead><tr><th scope="col">Entity</th><th scope="col">Notification date</th><th scope="col">Records affected</th><th scope="col">Severity components</th></tr></thead>
+          <tbody>
+            <tr><td class="entity">AnMed Health</td><td class="date">2026-08-27</td><td><strong>501</strong><div class="record-ruler" role="img" aria-label="501 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-501"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="score-readout"><strong>22 / 100</strong><span>2 of 4 assessed</span></div><div class="component-rail" role="img" aria-label="22 data-class points, zero scale points, remediation and lag not assessed"><span class="component-segment capacity-data is-assessed"><span class="earned earned-data-22"></span></span><span class="component-segment capacity-scale is-assessed"><span class="earned earned-scale-0"></span></span><span class="component-segment capacity-remediation unassessed-pattern"></span><span class="component-segment capacity-lag unassessed-pattern"></span></div></td></tr>
+            <tr><td class="entity">White River Junction VA Medical Center</td><td class="date">2026-08-28</td><td><strong>1,408</strong><div class="record-ruler" role="img" aria-label="1,408 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-1408"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="score-readout"><strong>25 / 100</strong><span>2 of 4 assessed</span></div><div class="component-rail" role="img" aria-label="22 data-class points, 3 scale points, remediation and lag not assessed"><span class="component-segment capacity-data is-assessed"><span class="earned earned-data-22"></span></span><span class="component-segment capacity-scale is-assessed"><span class="earned earned-scale-3"></span></span><span class="component-segment capacity-remediation unassessed-pattern"></span><span class="component-segment capacity-lag unassessed-pattern"></span></div></td></tr>
+            <tr><td class="entity">Life Bridges, Inc.</td><td class="date">2026-08-20</td><td><strong>5,194</strong><div class="record-ruler" role="img" aria-label="5,194 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-5194"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="score-readout"><strong>25 / 100</strong><span>2 of 4 assessed</span></div><div class="component-rail" role="img" aria-label="22 data-class points, 3 scale points, remediation and lag not assessed"><span class="component-segment capacity-data is-assessed"><span class="earned earned-data-22"></span></span><span class="component-segment capacity-scale is-assessed"><span class="earned earned-scale-3"></span></span><span class="component-segment capacity-remediation unassessed-pattern"></span><span class="component-segment capacity-lag unassessed-pattern"></span></div></td></tr>
+            <tr><td class="entity">Hawaii Dental Group, Inc. dba Hawaii Family Dental</td><td class="date">2026-08-21</td><td><strong>45,853</strong><div class="record-ruler" role="img" aria-label="45,853 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-45853"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="score-readout"><strong>28 / 100</strong><span>2 of 4 assessed</span></div><div class="component-rail" role="img" aria-label="22 data-class points, 6 scale points, remediation and lag not assessed"><span class="component-segment capacity-data is-assessed"><span class="earned earned-data-22"></span></span><span class="component-segment capacity-scale is-assessed"><span class="earned earned-scale-6"></span></span><span class="component-segment capacity-remediation unassessed-pattern"></span><span class="component-segment capacity-lag unassessed-pattern"></span></div></td></tr>
+            <tr><td class="entity">Midwest Spine &amp; Brain Institute</td><td class="date">2026-08-14</td><td><strong>108,487</strong><div class="record-ruler" role="img" aria-label="108,487 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-108487"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="score-readout"><strong>31 / 100</strong><span>2 of 4 assessed</span></div><div class="component-rail" role="img" aria-label="22 data-class points, 9 scale points, remediation and lag not assessed"><span class="component-segment capacity-data is-assessed"><span class="earned earned-data-22"></span></span><span class="component-segment capacity-scale is-assessed"><span class="earned earned-scale-9"></span></span><span class="component-segment capacity-remediation unassessed-pattern"></span><span class="component-segment capacity-lag unassessed-pattern"></span></div></td></tr>
+            <tr><td class="entity">AdaptHealth, LLC</td><td class="date">2026-08-14</td><td><strong>4,115,802</strong><div class="record-ruler" role="img" aria-label="4,115,802 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-4115802"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="score-readout"><strong>34 / 100</strong><span>2 of 4 assessed</span></div><div class="component-rail" role="img" aria-label="22 data-class points, 12 scale points, remediation and lag not assessed"><span class="component-segment capacity-data is-assessed"><span class="earned earned-data-22"></span></span><span class="component-segment capacity-scale is-assessed"><span class="earned earned-scale-12"></span></span><span class="component-segment capacity-remediation unassessed-pattern"></span><span class="component-segment capacity-lag unassessed-pattern"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="context-heading">Detail-page context: AdaptHealth, LLC</h3>
+      <div class="detail-example">
+        <h2>Severity score</h2>
+        <div class="detail-score-line"><span class="detail-score">34 <span class="denominator">/ 100</span></span><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 components assessed</span></div>
+        <div class="component-rail large" role="img" aria-label="A 100-point rail divided into data class capacity 70, scale capacity 15, remediation capacity 10, and lag capacity 5. AdaptHealth earned 22 and 12 in the assessed segments; the final two segments were not assessed."><span class="component-segment capacity-data is-assessed"><span class="earned earned-data-22"></span></span><span class="component-segment capacity-scale is-assessed"><span class="earned earned-scale-12"></span></span><span class="component-segment capacity-remediation unassessed-pattern"></span><span class="component-segment capacity-lag unassessed-pattern"></span></div>
+        <div class="rail-legend" aria-hidden="true"><span>Data class, 22 of 70</span><span>Scale, 12 of 15</span><span>Remediation, not assessed</span><span>Lag, not assessed</span></div>
+        <p class="supporting-copy">Solid length is points earned inside each component’s capacity. A bottom rule means assessed even when the component earned zero; hatching means the source did not permit assessment.</p>
+        <div class="table-wrap"><table class="component-table"><caption class="sr-only">AdaptHealth severity component breakdown</caption><thead><tr><th scope="col">Component</th><th scope="col">Basis</th><th scope="col">Assessment</th><th scope="col">Points</th></tr></thead><tbody><tr><td>Data classes exposed</td><td>Medical records or diagnoses</td><td>Assessed</td><td>22</td></tr><tr><td>Scale</td><td>4,115,802 records affected</td><td>Assessed</td><td>12</td></tr><tr><td>Remediation gap</td><td>Not reported by this source</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td>Notification lag</td><td>Discovery or notification date not disclosed</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td><strong>Total</strong></td><td></td><td>2 of 4 assessed</td><td><strong>34</strong></td></tr></tbody></table></div>
+      </div>
+      <p class="variant-caption"><strong>Idea:</strong> turn the score into a proportional map of the published rubric rather than one undifferentiated fill. <strong>Discriminates:</strong> contribution, capacity, assessed zero, and unavailable evidence are explicit. <strong>Sacrifice:</strong> small 10- and 5-point segments need the accompanying table to name them comfortably. <strong>Assessability:</strong> assessed segments carry a solid baseline while unavailable segments are hatched. <strong>Print:</strong> segment boundaries, fill length, baseline, hatch, and labels remain distinct. <strong>Column treatment:</strong> two encodings; count keeps its logarithmic ruler because the component rail explains score composition, not record magnitude.</p>
+    </section>
+
+    <section class="variant" aria-labelledby="variant-3-title">
+      <div class="variant-title"><span class="variant-number">Variant 3</span><h2 id="variant-3-title">Archive distribution rug</h2></div>
+      <p class="variant-summary">Place each score on the full theoretical axis while five vertical stacks show how often today’s observed values occur.</p>
+
+      <h3 class="context-heading">Table context</h3>
+      <div class="table-wrap">
+        <table class="data-table">
+          <caption class="sr-only">Archive distribution rugs for six breach records</caption>
+          <colgroup><col class="col-entity"><col class="col-date"><col class="col-records"><col class="col-severity"></colgroup>
+          <thead><tr><th scope="col">Entity</th><th scope="col">Notification date</th><th scope="col">Records affected</th><th scope="col">Severity in archive</th></tr></thead>
+          <tbody>
+            <tr><td class="entity">AnMed Health</td><td class="date">2026-08-27</td><td><strong>501</strong><div class="record-ruler" role="img" aria-label="501 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-501"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="density-readout"><strong>22 / 100</strong><span>18 of 90 records</span></div><div class="density-rug" role="img" aria-label="Score 22, occurring in 18 of 90 sampled records, on a 0 to 100 distribution"><span class="density-stack density-18 score-pos-22"></span><span class="density-stack density-44 score-pos-25"></span><span class="density-stack density-19 score-pos-28"></span><span class="density-stack density-7 score-pos-31"></span><span class="density-stack density-2 score-pos-34"></span><span class="density-current score-pos-22"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">White River Junction VA Medical Center</td><td class="date">2026-08-28</td><td><strong>1,408</strong><div class="record-ruler" role="img" aria-label="1,408 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-1408"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="density-readout"><strong>25 / 100</strong><span>44 of 90 records</span></div><div class="density-rug" role="img" aria-label="Score 25, occurring in 44 of 90 sampled records, on a 0 to 100 distribution"><span class="density-stack density-18 score-pos-22"></span><span class="density-stack density-44 score-pos-25"></span><span class="density-stack density-19 score-pos-28"></span><span class="density-stack density-7 score-pos-31"></span><span class="density-stack density-2 score-pos-34"></span><span class="density-current score-pos-25"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">Life Bridges, Inc.</td><td class="date">2026-08-20</td><td><strong>5,194</strong><div class="record-ruler" role="img" aria-label="5,194 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-5194"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="density-readout"><strong>25 / 100</strong><span>44 of 90 records</span></div><div class="density-rug" role="img" aria-label="Score 25, occurring in 44 of 90 sampled records, on a 0 to 100 distribution"><span class="density-stack density-18 score-pos-22"></span><span class="density-stack density-44 score-pos-25"></span><span class="density-stack density-19 score-pos-28"></span><span class="density-stack density-7 score-pos-31"></span><span class="density-stack density-2 score-pos-34"></span><span class="density-current score-pos-25"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">Hawaii Dental Group, Inc. dba Hawaii Family Dental</td><td class="date">2026-08-21</td><td><strong>45,853</strong><div class="record-ruler" role="img" aria-label="45,853 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-45853"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="density-readout"><strong>28 / 100</strong><span>19 of 90 records</span></div><div class="density-rug" role="img" aria-label="Score 28, occurring in 19 of 90 sampled records, on a 0 to 100 distribution"><span class="density-stack density-18 score-pos-22"></span><span class="density-stack density-44 score-pos-25"></span><span class="density-stack density-19 score-pos-28"></span><span class="density-stack density-7 score-pos-31"></span><span class="density-stack density-2 score-pos-34"></span><span class="density-current score-pos-28"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">Midwest Spine &amp; Brain Institute</td><td class="date">2026-08-14</td><td><strong>108,487</strong><div class="record-ruler" role="img" aria-label="108,487 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-108487"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="density-readout"><strong>31 / 100</strong><span>7 of 90 records</span></div><div class="density-rug" role="img" aria-label="Score 31, occurring in 7 of 90 sampled records, on a 0 to 100 distribution"><span class="density-stack density-18 score-pos-22"></span><span class="density-stack density-44 score-pos-25"></span><span class="density-stack density-19 score-pos-28"></span><span class="density-stack density-7 score-pos-31"></span><span class="density-stack density-2 score-pos-34"></span><span class="density-current score-pos-31"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">AdaptHealth, LLC</td><td class="date">2026-08-14</td><td><strong>4,115,802</strong><div class="record-ruler" role="img" aria-label="4,115,802 records on a logarithmic scale from 500 to 10 million"><div class="record-track" aria-hidden="true"><span class="record-pin record-pos-4115802"></span></div><div class="record-scale-labels" aria-hidden="true"><span>500</span><span>10m</span></div></div></td><td><div class="density-readout"><strong>34 / 100</strong><span>2 of 90 records</span></div><div class="density-rug" role="img" aria-label="Score 34, occurring in 2 of 90 sampled records, on a 0 to 100 distribution"><span class="density-stack density-18 score-pos-22"></span><span class="density-stack density-44 score-pos-25"></span><span class="density-stack density-19 score-pos-28"></span><span class="density-stack density-7 score-pos-31"></span><span class="density-stack density-2 score-pos-34"></span><span class="density-current score-pos-34"></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="context-heading">Detail-page context: AdaptHealth, LLC</h3>
+      <div class="detail-example">
+        <h2>Severity score</h2>
+        <div class="detail-score-line"><span class="detail-score">34 <span class="denominator">/ 100</span></span><strong>2 of 90 sampled records have this value</strong><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 components assessed</span></div>
+        <div class="density-rug large" role="img" aria-label="Distribution on the 0 to 100 scale: 18 records at 22, 44 at 25, 19 at 28, 7 at 31, and 2 at the current score 34"><span class="density-stack density-18 score-pos-22"></span><span class="density-stack density-44 score-pos-25"></span><span class="density-stack density-19 score-pos-28"></span><span class="density-stack density-7 score-pos-31"></span><span class="density-stack density-2 score-pos-34"></span><span class="density-current score-pos-34"></span></div>
+        <div class="axis-endpoints" aria-hidden="true"><span>0</span><span>100</span></div>
+        <p class="density-key">Observed stacks: 22 (18 records), 25 (44), 28 (19), 31 (7), 34 (2). The dark vertical rule marks this record.</p>
+        <div class="table-wrap"><table class="component-table"><caption class="sr-only">AdaptHealth severity component breakdown</caption><thead><tr><th scope="col">Component</th><th scope="col">Basis</th><th scope="col">Assessment</th><th scope="col">Points</th></tr></thead><tbody><tr><td>Data classes exposed</td><td>Medical records or diagnoses</td><td>Assessed</td><td>22</td></tr><tr><td>Scale</td><td>4,115,802 records affected</td><td>Assessed</td><td>12</td></tr><tr><td>Remediation gap</td><td>Not reported by this source</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td>Notification lag</td><td>Discovery or notification date not disclosed</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td><strong>Total</strong></td><td></td><td>2 of 4 assessed</td><td><strong>34</strong></td></tr></tbody></table></div>
+      </div>
+      <p class="variant-caption"><strong>Idea:</strong> make archive frequency the visual context while retaining the theoretical 0–100 position. <strong>Discriminates:</strong> common, uncommon, and highest-observed values become legible without inventing threat labels. <strong>Sacrifice:</strong> two records with the same score share one severity mark even when their exact counts differ. <strong>Assessability:</strong> the four-cell solid and hatch key accompanies the active distribution rule. <strong>Print:</strong> stack height, the active rule, exact frequencies, and assessment text survive monochrome. <strong>Column treatment:</strong> two encodings; the records column keeps a log ruler so 1,408 and 5,194 remain distinguishable despite sharing score 25.</p>
+    </section>
+
+    <section class="variant" aria-labelledby="variant-4-title">
+      <div class="variant-title"><span class="variant-number">Variant 4</span><h2 id="variant-4-title">Magnitude spine with score ticket</h2></div>
+      <p class="variant-summary">Collapse the duplicate columns into one logarithmic records axis; attach the exact severity fraction and a four-part assessability marker to the same treatment.</p>
+
+      <h3 class="context-heading">Table context</h3>
+      <div class="table-wrap">
+        <table class="combined-table">
+          <caption class="sr-only">Combined magnitude spine and severity score for six breach records</caption>
+          <colgroup><col class="col-entity"><col class="col-date"><col class="col-combined"></colgroup>
+          <thead><tr><th scope="col">Entity</th><th scope="col">Notification date</th><th scope="col">Records affected and severity</th></tr></thead>
+          <tbody>
+            <tr><td class="entity">AnMed Health</td><td class="date">2026-08-27</td><td><div class="combined-readout"><span><strong>501</strong> records</span><strong>22 / 100</strong></div><div class="magnitude-spine" role="img" aria-label="501 records on a logarithmic scale; severity 22 out of 100; two of four components assessed"><span class="spine-tick log-pos-10000"></span><span class="spine-tick log-pos-100000"></span><span class="spine-tick log-pos-1000000"></span><span class="spine-marker record-pos-501"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">White River Junction VA Medical Center</td><td class="date">2026-08-28</td><td><div class="combined-readout"><span><strong>1,408</strong> records</span><strong>25 / 100</strong></div><div class="magnitude-spine" role="img" aria-label="1,408 records on a logarithmic scale; severity 25 out of 100; two of four components assessed"><span class="spine-tick log-pos-10000"></span><span class="spine-tick log-pos-100000"></span><span class="spine-tick log-pos-1000000"></span><span class="spine-marker record-pos-1408"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">Life Bridges, Inc.</td><td class="date">2026-08-20</td><td><div class="combined-readout"><span><strong>5,194</strong> records</span><strong>25 / 100</strong></div><div class="magnitude-spine" role="img" aria-label="5,194 records on a logarithmic scale; severity 25 out of 100; two of four components assessed"><span class="spine-tick log-pos-10000"></span><span class="spine-tick log-pos-100000"></span><span class="spine-tick log-pos-1000000"></span><span class="spine-marker record-pos-5194"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">Hawaii Dental Group, Inc. dba Hawaii Family Dental</td><td class="date">2026-08-21</td><td><div class="combined-readout"><span><strong>45,853</strong> records</span><strong>28 / 100</strong></div><div class="magnitude-spine" role="img" aria-label="45,853 records on a logarithmic scale; severity 28 out of 100; two of four components assessed"><span class="spine-tick log-pos-10000"></span><span class="spine-tick log-pos-100000"></span><span class="spine-tick log-pos-1000000"></span><span class="spine-marker record-pos-45853"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">Midwest Spine &amp; Brain Institute</td><td class="date">2026-08-14</td><td><div class="combined-readout"><span><strong>108,487</strong> records</span><strong>31 / 100</strong></div><div class="magnitude-spine" role="img" aria-label="108,487 records on a logarithmic scale; severity 31 out of 100; two of four components assessed"><span class="spine-tick log-pos-10000"></span><span class="spine-tick log-pos-100000"></span><span class="spine-tick log-pos-1000000"></span><span class="spine-marker record-pos-108487"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+            <tr><td class="entity">AdaptHealth, LLC</td><td class="date">2026-08-14</td><td><div class="combined-readout"><span><strong>4,115,802</strong> records</span><strong>34 / 100</strong></div><div class="magnitude-spine" role="img" aria-label="4,115,802 records on a logarithmic scale; severity 34 out of 100; two of four components assessed"><span class="spine-tick log-pos-10000"></span><span class="spine-tick log-pos-100000"></span><span class="spine-tick log-pos-1000000"></span><span class="spine-marker record-pos-4115802"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span></div><div class="encoding-meta"><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 assessed</span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="context-heading">Detail-page context: AdaptHealth, LLC</h3>
+      <div class="detail-example">
+        <h2>Severity score</h2>
+        <div class="detail-score-line"><span class="detail-score">34 <span class="denominator">/ 100</span></span><strong>4,115,802 records affected</strong><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 components assessed</span></div>
+        <div class="magnitude-spine large" role="img" aria-label="4,115,802 records placed near the high end of a logarithmic scale from 500 to 10 million; severity 34 out of 100; two of four components assessed"><span class="spine-tick log-pos-10000"></span><span class="spine-tick log-pos-100000"></span><span class="spine-tick log-pos-1000000"></span><span class="spine-marker record-pos-4115802"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span></div>
+        <div class="spine-scale-labels" aria-hidden="true"><span>500</span><span>10,000</span><span>100,000</span><span>1 million</span><span>10 million</span></div>
+        <p class="supporting-copy">Position carries record magnitude on a logarithmic axis. The ticketed fraction remains the published severity score, and the marker itself is divided into two solid assessed quadrants and two hatched unassessed quadrants.</p>
+        <div class="table-wrap"><table class="component-table"><caption class="sr-only">AdaptHealth severity component breakdown</caption><thead><tr><th scope="col">Component</th><th scope="col">Basis</th><th scope="col">Assessment</th><th scope="col">Points</th></tr></thead><tbody><tr><td>Data classes exposed</td><td>Medical records or diagnoses</td><td>Assessed</td><td>22</td></tr><tr><td>Scale</td><td>4,115,802 records affected</td><td>Assessed</td><td>12</td></tr><tr><td>Remediation gap</td><td>Not reported by this source</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td>Notification lag</td><td>Discovery or notification date not disclosed</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td><strong>Total</strong></td><td></td><td>2 of 4 assessed</td><td><strong>34</strong></td></tr></tbody></table></div>
+      </div>
+      <p class="variant-caption"><strong>Idea:</strong> attach the exact score to a logarithmic count spine because count currently determines every observed score difference. <strong>Discriminates:</strong> four orders of record magnitude are readable at compact table density. <strong>Sacrifice:</strong> score is numeric rather than spatial, so future score differences rely on the fraction and breakdown. <strong>Assessability:</strong> the position marker itself has two solid and two hatched quadrants. <strong>Print:</strong> axis position, exact values, quadrant texture, and labels need no color. <strong>Column treatment:</strong> one combined treatment; it removes today’s duplicate column while retaining both exact values.</p>
+    </section>
+
+    <section class="variant" aria-labelledby="variant-5-title">
+      <div class="variant-title"><span class="variant-number">Variant 5</span><h2 id="variant-5-title">Typographic ledger pair</h2></div>
+      <p class="variant-summary">Use restrained changes in type size and weight to make both record magnitude and score scannable, with a four-segment evidence rule beneath the pair.</p>
+
+      <h3 class="context-heading">Table context</h3>
+      <div class="table-wrap">
+        <table class="combined-table">
+          <caption class="sr-only">Typographic record magnitude and severity pairs for six breach records</caption>
+          <colgroup><col class="col-entity"><col class="col-date"><col class="col-combined"></colgroup>
+          <thead><tr><th scope="col">Entity</th><th scope="col">Notification date</th><th scope="col">Records affected and severity</th></tr></thead>
+          <tbody>
+            <tr><td class="entity">AnMed Health</td><td class="date">2026-08-27</td><td><div class="type-pair"><span><span class="type-count magnitude-type-1">501</span> records</span><span class="type-score score-type-22">22 <span class="denominator">/ 100</span></span></div><div class="type-completeness" role="img" aria-label="Two of four severity components assessed"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></div></td></tr>
+            <tr><td class="entity">White River Junction VA Medical Center</td><td class="date">2026-08-28</td><td><div class="type-pair"><span><span class="type-count magnitude-type-2">1,408</span> records</span><span class="type-score score-type-25">25 <span class="denominator">/ 100</span></span></div><div class="type-completeness" role="img" aria-label="Two of four severity components assessed"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></div></td></tr>
+            <tr><td class="entity">Life Bridges, Inc.</td><td class="date">2026-08-20</td><td><div class="type-pair"><span><span class="type-count magnitude-type-2">5,194</span> records</span><span class="type-score score-type-25">25 <span class="denominator">/ 100</span></span></div><div class="type-completeness" role="img" aria-label="Two of four severity components assessed"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></div></td></tr>
+            <tr><td class="entity">Hawaii Dental Group, Inc. dba Hawaii Family Dental</td><td class="date">2026-08-21</td><td><div class="type-pair"><span><span class="type-count magnitude-type-3">45,853</span> records</span><span class="type-score score-type-28">28 <span class="denominator">/ 100</span></span></div><div class="type-completeness" role="img" aria-label="Two of four severity components assessed"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></div></td></tr>
+            <tr><td class="entity">Midwest Spine &amp; Brain Institute</td><td class="date">2026-08-14</td><td><div class="type-pair"><span><span class="type-count magnitude-type-4">108,487</span> records</span><span class="type-score score-type-31">31 <span class="denominator">/ 100</span></span></div><div class="type-completeness" role="img" aria-label="Two of four severity components assessed"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></div></td></tr>
+            <tr><td class="entity">AdaptHealth, LLC</td><td class="date">2026-08-14</td><td><div class="type-pair"><span><span class="type-count magnitude-type-5">4,115,802</span> records</span><span class="type-score score-type-34">34 <span class="denominator">/ 100</span></span></div><div class="type-completeness" role="img" aria-label="Two of four severity components assessed"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="context-heading">Detail-page context: AdaptHealth, LLC</h3>
+      <div class="detail-example">
+        <h2>Severity score</h2>
+        <div class="type-hero">
+          <div class="type-hero-block"><span class="type-hero-label">Records affected</span><span class="type-count">4,115,802</span></div>
+          <div class="type-hero-block"><span class="type-hero-label">Severity score</span><span class="type-score">34 <span class="denominator">/ 100</span></span><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 components assessed</span></div>
+        </div>
+        <dl class="component-ledger">
+          <div><dt>Data classes exposed</dt><dd>Medical records or diagnoses, assessed</dd><dd>22</dd></div>
+          <div><dt>Scale</dt><dd>4,115,802 records affected, assessed</dd><dd>12</dd></div>
+          <div><dt>Remediation gap</dt><dd class="not-assessed-text">Not reported by this source, not assessed</dd><dd>0</dd></div>
+          <div><dt>Notification lag</dt><dd class="not-assessed-text">Discovery or notification date not disclosed, not assessed</dd><dd>0</dd></div>
+          <div><dt><strong>Total</strong></dt><dd>2 of 4 components assessed</dd><dd><strong>34</strong></dd></div>
+        </dl>
+      </div>
+      <p class="variant-caption"><strong>Idea:</strong> make exact count and score the graphic by varying only their typographic weight and scale. <strong>Discriminates:</strong> digit length, restrained size steps, and weight make magnitude bands fast to scan without a chart. <strong>Sacrifice:</strong> type is ordinal rather than metrically precise and produces uneven row rhythm. <strong>Assessability:</strong> a four-segment evidence rule uses solid and hatch below every pair. <strong>Print:</strong> type hierarchy, exact numbers, segmented rule, and explicit assessment language reproduce cleanly. <strong>Column treatment:</strong> one combined treatment; the count leads and the score stays paired with it because their present ordering is identical.</p>
+    </section>
+
+    <section class="variant" aria-labelledby="variant-6-title">
+      <div class="variant-title"><span class="variant-number">Variant 6</span><h2 id="variant-6-title">Orthogonal score and magnitude plot</h2></div>
+      <p class="variant-summary">Map record count logarithmically across the horizontal axis and severity across the full vertical 0–100 axis, using assessability as the structure of the point itself.</p>
+
+      <h3 class="context-heading">Table context</h3>
+      <div class="table-wrap">
+        <table class="combined-table">
+          <caption class="sr-only">Two-dimensional record magnitude and severity plots for six breach records</caption>
+          <colgroup><col class="col-entity"><col class="col-date"><col class="col-combined"></colgroup>
+          <thead><tr><th scope="col">Entity</th><th scope="col">Notification date</th><th scope="col">Records affected by severity</th></tr></thead>
+          <tbody>
+            <tr><td class="entity">AnMed Health</td><td class="date">2026-08-27</td><td><div class="matrix-readout"><span><strong>501</strong> records</span><strong>22 / 100</strong></div><div class="matrix-plot" role="img" aria-label="501 records affected at severity 22 out of 100; two of four components assessed"><span class="matrix-point matrix-x-501 matrix-y-22"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span><span class="matrix-axis-label matrix-y-top">100</span><span class="matrix-axis-label matrix-y-bottom">0</span><span class="matrix-axis-label matrix-x-start">500</span><span class="matrix-axis-label matrix-x-end">10m</span></div></td></tr>
+            <tr><td class="entity">White River Junction VA Medical Center</td><td class="date">2026-08-28</td><td><div class="matrix-readout"><span><strong>1,408</strong> records</span><strong>25 / 100</strong></div><div class="matrix-plot" role="img" aria-label="1,408 records affected at severity 25 out of 100; two of four components assessed"><span class="matrix-point matrix-x-1408 matrix-y-25"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span><span class="matrix-axis-label matrix-y-top">100</span><span class="matrix-axis-label matrix-y-bottom">0</span><span class="matrix-axis-label matrix-x-start">500</span><span class="matrix-axis-label matrix-x-end">10m</span></div></td></tr>
+            <tr><td class="entity">Life Bridges, Inc.</td><td class="date">2026-08-20</td><td><div class="matrix-readout"><span><strong>5,194</strong> records</span><strong>25 / 100</strong></div><div class="matrix-plot" role="img" aria-label="5,194 records affected at severity 25 out of 100; two of four components assessed"><span class="matrix-point matrix-x-5194 matrix-y-25"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span><span class="matrix-axis-label matrix-y-top">100</span><span class="matrix-axis-label matrix-y-bottom">0</span><span class="matrix-axis-label matrix-x-start">500</span><span class="matrix-axis-label matrix-x-end">10m</span></div></td></tr>
+            <tr><td class="entity">Hawaii Dental Group, Inc. dba Hawaii Family Dental</td><td class="date">2026-08-21</td><td><div class="matrix-readout"><span><strong>45,853</strong> records</span><strong>28 / 100</strong></div><div class="matrix-plot" role="img" aria-label="45,853 records affected at severity 28 out of 100; two of four components assessed"><span class="matrix-point matrix-x-45853 matrix-y-28"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span><span class="matrix-axis-label matrix-y-top">100</span><span class="matrix-axis-label matrix-y-bottom">0</span><span class="matrix-axis-label matrix-x-start">500</span><span class="matrix-axis-label matrix-x-end">10m</span></div></td></tr>
+            <tr><td class="entity">Midwest Spine &amp; Brain Institute</td><td class="date">2026-08-14</td><td><div class="matrix-readout"><span><strong>108,487</strong> records</span><strong>31 / 100</strong></div><div class="matrix-plot" role="img" aria-label="108,487 records affected at severity 31 out of 100; two of four components assessed"><span class="matrix-point matrix-x-108487 matrix-y-31"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span><span class="matrix-axis-label matrix-y-top">100</span><span class="matrix-axis-label matrix-y-bottom">0</span><span class="matrix-axis-label matrix-x-start">500</span><span class="matrix-axis-label matrix-x-end">10m</span></div></td></tr>
+            <tr><td class="entity">AdaptHealth, LLC</td><td class="date">2026-08-14</td><td><div class="matrix-readout"><span><strong>4,115,802</strong> records</span><strong>34 / 100</strong></div><div class="matrix-plot" role="img" aria-label="4,115,802 records affected at severity 34 out of 100; two of four components assessed"><span class="matrix-point matrix-x-4115802 matrix-y-34"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span><span class="matrix-axis-label matrix-y-top">100</span><span class="matrix-axis-label matrix-y-bottom">0</span><span class="matrix-axis-label matrix-x-start">500</span><span class="matrix-axis-label matrix-x-end">10m</span></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="context-heading">Detail-page context: AdaptHealth, LLC</h3>
+      <div class="detail-example">
+        <h2>Severity score</h2>
+        <div class="detail-score-line"><span class="detail-score">34 <span class="denominator">/ 100</span></span><strong>4,115,802 records affected</strong><span class="assessability"><span class="assess-meter" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span>2 of 4 components assessed</span></div>
+        <div class="matrix-plot large" role="img" aria-label="A plot with logarithmic records affected from 500 to 10 million on the horizontal axis and severity from 0 to 100 on the vertical axis. AdaptHealth is at 4,115,802 records and severity 34, with two of four components assessed.">
+          <span class="matrix-grid-line horizontal grid-25"></span><span class="matrix-grid-line horizontal grid-50"></span><span class="matrix-grid-line horizontal grid-75"></span>
+          <span class="matrix-grid-line vertical grid-x-10000"></span><span class="matrix-grid-line vertical grid-x-100000"></span><span class="matrix-grid-line vertical grid-x-1000000"></span>
+          <span class="matrix-point matrix-x-4115802 matrix-y-34"><span class="quad-marker" aria-hidden="true"><span class="assessed"></span><span class="assessed"></span><span class="unassessed"></span><span class="unassessed"></span></span></span>
+          <span class="matrix-axis-label matrix-y-top">100</span><span class="matrix-axis-label matrix-y-mid">50</span><span class="matrix-axis-label matrix-y-bottom">0</span><span class="matrix-axis-label matrix-x-start">500 records</span><span class="matrix-axis-label matrix-x-end">10 million records</span>
+        </div>
+        <p class="supporting-copy">Today’s records fall on a narrow rising path because scale is the only varying score component. If later sources activate remediation and lag, a record can move vertically without moving horizontally, so the encoding reveals rather than conceals the new information.</p>
+        <div class="table-wrap"><table class="component-table"><caption class="sr-only">AdaptHealth severity component breakdown</caption><thead><tr><th scope="col">Component</th><th scope="col">Basis</th><th scope="col">Assessment</th><th scope="col">Points</th></tr></thead><tbody><tr><td>Data classes exposed</td><td>Medical records or diagnoses</td><td>Assessed</td><td>22</td></tr><tr><td>Scale</td><td>4,115,802 records affected</td><td>Assessed</td><td>12</td></tr><tr><td>Remediation gap</td><td>Not reported by this source</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td>Notification lag</td><td>Discovery or notification date not disclosed</td><td class="not-assessed-text">Not assessed</td><td>0</td></tr><tr><td><strong>Total</strong></td><td></td><td>2 of 4 assessed</td><td><strong>34</strong></td></tr></tbody></table></div>
+      </div>
+      <p class="variant-caption"><strong>Idea:</strong> give count and score independent axes so their present redundancy and any future divergence are both visible. <strong>Discriminates:</strong> orders of magnitude horizontally and the complete rubric vertically, including future 60–90 scores. <strong>Sacrifice:</strong> the miniature plot makes rows taller and asks more of first-time readers than a single ruler. <strong>Assessability:</strong> each plotted point is built from two solid and two hatched quadrants. <strong>Print:</strong> axes, position, quadrant texture, exact values, and labels remain complete in monochrome. <strong>Column treatment:</strong> one combined treatment; it removes duplicate columns but never collapses count and severity onto the same axis.</p>
+    </section>
+
+    <section class="recommendation" aria-labelledby="recommendation-title">
+      <h2 id="recommendation-title">Recommendation</h2>
+      <p>Ship Variant 6 because it gives records affected the logarithmic treatment its four-order range needs while preserving severity as an independent, honest 0–100 measure. Its divided point makes partial assessability inseparable from the score, and its two axes will become more informative rather than obsolete when remediation and lag begin to vary. If table height is non-negotiable, Variant 4 is the restrained fallback, but the orthogonal plot is the only option that fully exposes today’s redundancy and tomorrow’s divergence.</p>
+    </section>
+  </main>
+
+  <footer class="sheet-footer">
+    <p>Static comparison artifact for BreachBook. No script, external asset, web font, image, or inline style is used.</p>
+  </footer>
+</body>
+</html>
