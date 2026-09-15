@@ -58,9 +58,15 @@ body {
 .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem; }
 
 h1, h2, h3, .masthead { font-family: var(--serif); font-weight: 600; line-height: 1.2; }
-h1 { font-size: 1.7rem; margin: 1.6rem 0 0.4rem; }
+h1 { font-size: 1.9rem; margin: 1.6rem 0 0.4rem; }
 h2 { font-size: 1.25rem; margin: 1.8rem 0 0.4rem; }
 h3 { font-size: 1.05rem; margin: 1.4rem 0 0.3rem; }
+
+/* Top-level record sections read as an editorial register: a hairline above
+   each major heading separates one section from the next without boxing them.
+   Scoped to direct children of main so nested headings — inside the citations
+   block, remediation modules, or browse groups — keep their own spacing. */
+main > h2 { border-top: 1px solid var(--rule); padding-top: 0.85rem; margin-top: 2rem; }
 
 /* Prose is constrained to a readable measure while tables keep the full
    column width — density belongs to the data, not to the paragraphs. */
@@ -71,23 +77,52 @@ main li { margin-bottom: 0.35rem; }
 a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
 a:focus-visible, .site-nav a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-.site-header { border-bottom: 2px solid var(--ink); background: var(--paper); padding: 1.1rem 0 0.8rem; }
-.masthead { margin: 0; font-size: 1.5rem; letter-spacing: 0.01em; }
+.site-header { border-bottom: 2px solid var(--ink); background: var(--paper); padding: 1.25rem 0 0; }
+.masthead { margin: 0; font-size: 1.6rem; letter-spacing: 0.01em; }
 .masthead a { color: var(--ink); text-decoration: none; }
-.site-tagline { margin: 0.15rem 0 0.6rem; color: var(--ink-soft); font-size: 0.92rem; }
-.site-nav { display: flex; gap: 1.4rem; flex-wrap: wrap; border-top: 1px solid var(--rule); padding-top: 0.55rem; }
-.site-nav a { font-size: 0.9rem; color: var(--ink-soft); text-decoration: none; text-transform: uppercase; letter-spacing: 0.06em; }
+.masthead a:hover { color: var(--accent); }
+.site-tagline { margin: 0.2rem 0 0.75rem; color: var(--ink-soft); font-size: 0.92rem; max-width: 46rem; }
+.site-nav { display: flex; gap: 0.4rem 1.6rem; flex-wrap: wrap; border-top: 1px solid var(--rule); }
+.site-nav a {
+  position: relative;
+  display: inline-block;
+  padding: 0.65rem 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+}
 .site-nav a:hover { color: var(--accent); }
+/* The active section reads as a register tab: an ink marker bar riding the
+   nav's top hairline, plus heavier ink text. The marker sits at the top rather
+   than the bottom because the header's 2px ink bottom border would swallow an
+   underbar there. */
+.site-nav a.is-active { color: var(--ink); font-weight: 600; }
+.site-nav a.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -1px;
+  height: 3px;
+  background: var(--ink);
+}
 
-main { padding-bottom: 3rem; }
+main { padding-bottom: 3.5rem; }
 
 /* Wide tables scroll inside their own box; the page body never scrolls
    sideways. .table-scroll wraps every table the templates emit. */
 .table-scroll { overflow-x: auto; margin: 0.8rem 0 1.2rem; -webkit-overflow-scrolling: touch; }
 table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
-th, td { border: 1px solid var(--rule); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+th, td { border: 1px solid var(--rule); padding: 0.5rem 0.7rem; text-align: left; vertical-align: top; }
 th { background: var(--panel); font-weight: 600; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-soft); }
 tbody tr:nth-child(even) { background: var(--zebra); }
+/* A quiet hover tint helps the eye track a single row across a dense, wide
+   table. It is a reading aid, not decoration, so it stays within the gray
+   scale rather than introducing a new color. */
+tbody tr { transition: background-color 90ms linear; }
+.breach-listing tbody tr:hover { background: var(--panel); }
 
 .listing-legend { max-width: none; color: var(--ink-soft); font-size: 0.875rem; }
 .listing-scroll:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -137,10 +172,10 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--panel); pa
 /* Severity: labeled bar with visible component breakdown — never a bare badge.
    Fill widths come from generated .sev-N classes (see site/build.js): the CSP
    is style-src 'self', which blocks inline style attributes. */
-.severity-bar { background: var(--panel); border: 1px solid var(--rule); height: 14px; width: 100%; max-width: 28rem; }
-.severity-bar-fill { background: var(--ink-soft); height: 100%; }
+.severity-bar { background: var(--panel); border: 1px solid var(--rule); height: 16px; width: 100%; max-width: 28rem; }
+.severity-bar-fill { background: var(--ink); height: 100%; }
 .severity-breakdown { font-family: var(--mono); font-size: 0.82rem; color: var(--ink-soft); }
-.severity-value { font-family: var(--serif); font-size: 1.5rem; margin: 0.2rem 0 0.5rem; }
+.severity-value { font-family: var(--serif); font-size: 1.9rem; line-height: 1.1; margin: 0.3rem 0 0.55rem; font-variant-numeric: tabular-nums; }
 .severity-rubric { font-family: var(--sans); font-size: 0.85rem; color: var(--ink-faint); }
 
 /* Record furniture */

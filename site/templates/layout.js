@@ -50,6 +50,35 @@ function page({ site, title, description, content, route, assets = {}, structure
   // Structured data is suppressed on noindex pages: describing a page to a
   // crawler that has just been told not to index it is contradictory.
   const structured = indexable ? jsonLd(structuredData) : '';
+
+  // Primary navigation with an active marker. A record with no JavaScript
+  // cannot highlight the current section on the client, so the active item is
+  // resolved here at build time and carries aria-current="page" for assistive
+  // tech plus a class hook for the visible underline. The home link is only
+  // active on the exact root; every other section matches its path prefix so a
+  // breach detail page still lights up "Record".
+  const navItems = [
+    { href: '/', label: 'Record' },
+    { href: '/rights/', label: 'Rights by state' },
+    { href: '/severity/', label: 'Severity rubric' },
+    { href: '/sources/', label: 'Sources &amp; methodology' },
+    { href: '/corrections/', label: 'Corrections' },
+    { href: '/about/', label: 'About' },
+  ];
+  const normalizedRoute = route === '/' ? '/' : `${route.replace(/\/$/, '')}/`;
+  const isActive = (href) => {
+    if (href === '/') {
+      return normalizedRoute === '/' || normalizedRoute.startsWith('/breach/') ||
+        normalizedRoute.startsWith('/breaches/') || normalizedRoute.startsWith('/sector/');
+    }
+    return normalizedRoute === href || normalizedRoute.startsWith(href);
+  };
+  const nav = navItems
+    .map(({ href, label }) => {
+      const active = isActive(href);
+      return `<a href="${href}"${active ? ' class="is-active" aria-current="page"' : ''}>${label}</a>`;
+    })
+    .join('\n      ');
   return `<!doctype html>
 <html lang="${site.language}">
 <head>
@@ -70,13 +99,8 @@ function page({ site, title, description, content, route, assets = {}, structure
   <div class="wrap">
     <p class="masthead"><a href="/">${escapeHtml(site.name)}</a></p>
     <p class="site-tagline">${escapeHtml(site.tagline)}. Every entry cites a government or court source.</p>
-    <nav class="site-nav">
-      <a href="/">Record</a>
-      <a href="/rights/">Rights by state</a>
-      <a href="/severity/">Severity rubric</a>
-      <a href="/sources/">Sources &amp; methodology</a>
-      <a href="/corrections/">Corrections</a>
-      <a href="/about/">About</a>
+    <nav class="site-nav" aria-label="Primary">
+      ${nav}
     </nav>
   </div>
 </header>
