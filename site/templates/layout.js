@@ -17,11 +17,13 @@ function jsonLd(objects) {
     .join('');
 }
 
-function page({ site, title, description, content, route, assets = {}, structuredData = [] }) {
+function page({ site, title, description, content, route, assets = {}, structuredData = [], script = null }) {
   const stylesheet = assets['styles.css'] || 'styles.css';
   const fullTitle = route === '/' ? `${site.name} — ${site.tagline}` : `${title} — ${site.name}`;
   const url = `${site.origin}${route === '/' ? '/' : route + '/'}`;
-  const indexable = route !== '/404';
+  // noindex set on the 404 and on any route the config flags (the /scan tool —
+  // an interactive utility, not a record page search engines should rank).
+  const indexable = route !== '/404' && route !== '/scan';
   const canonical = indexable ? `\n<link rel="canonical" href="${url}">` : '\n<meta name="robots" content="noindex">';
   // Link-preview metadata. One static site-wide image rather than a per-page
   // one: a shared card is a strict improvement over the bare text a link
@@ -73,6 +75,7 @@ function page({ site, title, description, content, route, assets = {}, structure
     <nav class="site-nav">
       <a href="/">Record</a>
       <a href="/rights/">Rights by state</a>
+      <a href="/scan/">Scan a link</a>
       <a href="/severity/">Severity rubric</a>
       <a href="/sources/">Sources &amp; methodology</a>
       <a href="/corrections/">Corrections</a>
@@ -99,6 +102,7 @@ ${content}
     }
   </div>
 </footer>
+${script ? `<script src="${script}" defer></script>` : ''}
 </body>
 </html>`;
 }

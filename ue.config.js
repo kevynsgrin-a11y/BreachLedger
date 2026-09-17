@@ -51,6 +51,9 @@ module.exports = {
     { path: '/privacy', template: 'privacy', phase: 0 },
     { path: '/about', template: 'about', phase: 0 },
     { path: '/breach/[slug]', template: 'breach-detail', phase: 1 },
+    // Interactive scanner: static shell + assets/scan.js against the TrueAPI
+    // ingest worker's rate-limited /scan/* endpoints. noindex (tool page).
+    { path: '/scan', template: 'scan', phase: 1, noindex: true, allowScript: true },
     // Remediation and state-rights pages are assembled from the seeded
     // reference tables (remediation_modules, state_rights), which are complete
     // and verified. Neither depends on the Phase 2 state-AG ingest, so holding

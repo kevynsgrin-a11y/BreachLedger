@@ -82,16 +82,25 @@ const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B00}
 // fails outright. See site/build-guard.test.js.
 const LD_JSON_BLOCK = /<script type="application\/ld\+json">[^<]*<\/script>/g;
 
-function guardPage(routePath, html) {
+function guardPage(routePath, html, { allowScript = false } = {}) {
   const problems = [];
   if (!html.startsWith('<!doctype html>')) problems.push('missing doctype');
   if (!/<title>[^<]+<\/title>/.test(html)) problems.push('missing <title>');
   if (EMOJI_RE.test(html)) problems.push('emoji found — emoji-as-iconography is banned (spec section 10)');
   // This site ships zero executable JavaScript. Any <script> tag other than a
   // well-formed JSON-LD block means data reached the page unescaped — fail the
-  // build rather than publish it.
-  if (/<script/i.test(html.replace(LD_JSON_BLOCK, ''))) {
+  // build rather than publish it. One narrow exception: routes explicitly
+  // flagged allowScript (the /scan interactive tool) may load exactly one
+  // fingerprinted script from /assets — anything else still fails the build.
+  if (/<script/i.test(html.replace(LD_JSON_BLOCK, '')) && !allowScript) {
     problems.push('script tag in output — the site is zero-JS; this is unescaped data');
+  }
+  if (allowScript) {
+    const scripts = [...html.matchAll(/<script([^>]*)>/gi)].map((m) => m[1]);
+    const offenders = scripts.filter((attrs) => !/src="\/assets\/[a-z0-9.-]+\.js"/i.test(attrs));
+    if (scripts.length > 1 || offenders.length) {
+      problems.push('allowScript pages may load exactly one fingerprinted /assets script');
+    }
   }
   if (problems.length) {
     throw new Error(`build guard failed for ${routePath}: ${problems.join('; ')}`);
@@ -259,9 +268,9 @@ function main() {
   for (const route of activeRoutes) {
     const template = require(path.join(TEMPLATES, `${route.template}.js`));
     const html = template.render(ctx);
-    guardPage(route.path, html);
+    guardPage(route.path, html, { allowScript: Boolean(route.allowScript) });
     written.push(writePage(route.path, html));
-    addToSitemap(route.path, buildDate);
+    if (!route.noindex) addToSitemap(route.path, buildDate);
   }
 
   // Dynamic routes generated from the record set.
