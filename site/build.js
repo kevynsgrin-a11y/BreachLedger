@@ -150,6 +150,20 @@ function main() {
 
   // Build-time D1 export (empty in Phase 0)
   const breaches = readData('breaches');
+  // VirusTotal domain-reputation enrichment: generated at build time from the
+  // TrueAPI ingest worker's warm cache (our own infrastructure, not an upstream
+  // API call). Best-effort — if the worker is unreachable the pages simply
+  // render without the reputation block.
+  try {
+    require('child_process').execFileSync(
+      process.execPath,
+      [path.join(ROOT, 'scripts/enrich-domain-reputation.mjs')],
+      { stdio: 'inherit' },
+    );
+  } catch (e) {
+    console.warn('domain-reputation enrichment skipped:', e.message);
+  }
+  const domainReputation = readData('domain-reputation');
   const sources = readData('sources');
   const litigation = readData('litigation');
 
@@ -296,7 +310,7 @@ function main() {
       // to do and then lists nothing is worse than no page. The detail page is
       // told the outcome so its link and the page's existence cannot disagree.
       const modules = remediationTpl ? remediationModulesFor(breach.data_classes_parsed || []) : [];
-      const html = breachTpl.render({
+      const html = breachTpl.render({ domainReputation,
         ...ctx,
         breach,
         sources: breachSources,
