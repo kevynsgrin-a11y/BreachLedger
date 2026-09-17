@@ -1,0 +1,23 @@
+{
+  "_comment": "Curated map of breach entity_name (normalized lowercase) to the entity's primary public domain, for VirusTotal domain-reputation enrichment. Extend as entities are curated; entries without a warmed ingest read simply render nothing. Domains are warmed portfolio-wide by TrueAPI's virustotal feed (workers/trueapi-ingest/src/virustotal-domains.json) — add new domains there too.",
+  "entity_domains": {
+    "at&t": "att.com",
+    "ticketmaster": "ticketmaster.com",
+    "ticketmaster entertainment": "ticketmaster.com",
+    "live nation": "ticketmaster.com",
+    "change healthcare": "changehealthcare.com",
+    "unitedhealth group": "optum.com",
+    "optum": "optum.com",
+    "23andme": "23andme.com",
+    "t-mobile": "t-mobile.com",
+    "t-mobile us": "t-mobile.com",
+    "experian": "experian.com",
+    "equifax": "equifax.com",
+    "marriott": "marriott.com",
+    "marriott international": "marriott.com",
+    "uber": "uber.com",
+    "anthem": "anthem.com",
+    "elevance health": "anthem.com",
+    "progress software": "moveit.com"
+  }
+}

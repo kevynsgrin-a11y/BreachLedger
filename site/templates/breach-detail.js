@@ -114,7 +114,7 @@ ${
 }
 
 function render(ctx) {
-  const { site, breach, sources, litigation = [], dataClassMap, hasRemediation = false } = ctx;
+  const { site, breach, sources, litigation = [], dataClassMap, hasRemediation = false, domainReputation = null } = ctx;
 
   const exposed = breach.data_classes_parsed || [];
   const states = breach.states_notified_parsed || [];
@@ -241,7 +241,22 @@ can be replaced; a permanent one such as a Social Security number cannot.</p>`
 <h2>Records affected</h2>
 <p>${recordsText}</p>
 
-<h2>Timeline</h2>
+${
+    (() => {
+      if (!domainReputation || !breach.entity_name) return '';
+      const dm = (domainReputation.entities || {})[breach.entity_name.trim().toLowerCase()];
+      const entry = dm ? (domainReputation.domains || {})[dm] : null;
+      const entryOut = entry ? { ...entry, domain: dm } : null;
+      if (!entryOut) return '';
+      const flagged = entry.malicious + entry.suspicious;
+      const verdict = flagged > 0
+        ? `<strong class="vt-flagged">${entryOut.malicious + entry.suspicious} of ${entryOut.malicious + entry.suspicious + entry.harmless + entry.undetected} engines currently flag this domain</strong>`
+        : `No engine in VirusTotal's aggregate currently flags this domain (${entryOut.harmless} harmless, ${entryOut.undetected} undetected)`;
+      return `<h2>Entity domain reputation</h2>
+<p>${verdict}. Verdict as of ${escapeHtml(fmtDate(entry.fetchedAt) || entry.fetchedAt)} &middot; <a href="https://www.virustotal.com/gui/domain/${dm}">VirusTotal report</a>.</p>
+<p class="retrieved">Post-breach fraud watch: the weeks after a disclosure are when lookalike claim and phishing sites appear. This is the machine verdict on the entity's own domain, not an editorial claim about the breach.</p>`;
+    })()
+  }<h2>Timeline</h2>
 <div class="table-scroll"><table>
 <caption class="sr-only">Timeline of this breach as recorded in its sources</caption>
 <tbody>${timelineRows}</tbody></table></div>

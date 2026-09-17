@@ -33,8 +33,8 @@ const sources = [
   { source_type: 'hhs_ocr', source_url: 'https://ocrportal.hhs.gov/ocr/breach/breach_report.jsf', retrieved_at: '2026-08-06' },
 ];
 
-function renderOne(overrides = {}, srcs = sources) {
-  return render({ ...baseCtx, breach: { ...breach, ...overrides }, sources: srcs });
+function renderOne(overrides = {}, srcs = sources, domainReputation) {
+  return render({ ...baseCtx, breach: { ...breach, ...overrides }, sources: srcs, domainReputation });
 }
 
 test('renders all nine required blocks in spec order', () => {
@@ -131,4 +131,21 @@ test('entity names with HTML metacharacters are escaped', () => {
   assert.ok(!html.includes('<script>alert'));
   assert.match(html, /&lt;script&gt;/);
   assert.match(html, /&amp; Co/);
+});
+
+test('entity domain reputation renders only when the artifact covers the entity', () => {
+  const rep = {
+    fetchedAt: '2026-09-13T00:00:00Z',
+    domains: { 'changehealthcare.com': { reputation: 0, malicious: 0, suspicious: 0, harmless: 58, undetected: 31, fetchedAt: '2026-09-13T00:00:00Z' } },
+    entities: { 'change healthcare': 'changehealthcare.com' },
+  };
+  const covered = renderOne({}, sources, rep);
+  assert.match(covered, /Entity domain reputation/);
+  assert.match(covered, /virustotal\.com\/gui\/domain\/changehealthcare\.com/);
+  // A covered entity with a flagged verdict surfaces the flag strongly.
+  const flagged = { ...rep, domains: { ...rep.domains, 'changehealthcare.com': { ...rep.domains['changehealthcare.com'], malicious: 3 } } };
+  assert.match(renderOne({}, sources, flagged), /3 of 92 engines currently flag/);
+  // An entity outside the artifact renders no block and no invented data.
+  const uncovered = renderOne({ entity_name: 'Unmapped Regional Clinic' }, sources, rep);
+  assert.doesNotMatch(uncovered, /Entity domain reputation/);
 });
