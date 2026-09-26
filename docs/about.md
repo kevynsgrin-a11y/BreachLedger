@@ -45,8 +45,9 @@ a field, so any score on the site can be recalculated by hand from the record it
 
 The editorial rules this site is built to are not aspirational: several are enforced by the build,
 which fails rather than publishing a page that violates them. A record with no cited source never
-renders. A settlement page whose claim link points at our own domain fails the build. The site ships
-no executable JavaScript, so it cannot track a reader even by accident.
+renders. A settlement page whose claim link points at our own domain fails the build. Beyond the
+analytics disclosed on the [privacy page](/privacy/) and the scan tool's own script, the build rejects
+any script, so the site cannot start tracking a reader by accident.
 
 We report rather than alarm. We do not publish "you may be owed" headlines, countdown urgency on
 anything but an actual legal deadline, or language implying a reader was affected by a breach they
@@ -61,6 +62,6 @@ The full policy and the correction log are on the [corrections](/corrections/) p
 
 ## Privacy
 
-This site collects no data about its readers: no cookies, no analytics, no tracking, no third-party
-scripts. See the [privacy policy](/privacy/) for the detail, including what Cloudflare necessarily
-sees in serving the request.
+This site measures aggregate traffic with Google Analytics, which sets cookies, and collects nothing
+else about its readers. See the [privacy policy](/privacy/) for the detail, including how to opt out
+and what Cloudflare necessarily sees in serving the request.

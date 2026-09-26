@@ -79,10 +79,12 @@ remediation_modules 13). `npm run provision` is idempotent and safe to re-run, b
 Continuous deploys: `.github/workflows/deploy.yml` publishes on every push once the
 `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` secrets and the `SITE_ORIGIN` repository variable are set.
 
-The production build ships zero executable JavaScript, a strict `Content-Security-Policy` via `_headers`,
-canonical URLs, an XML sitemap, and an SVG favicon. The only `<script>` element on any page is a JSON-LD
-metadata block, which carries no code; `site/build.js` fails the build on any other script tag, and on a
-JSON-LD block whose payload was not escaped (see `site/build-guard.test.js`). Workers (ingest-cron, api,
+The production build ships a strict `Content-Security-Policy` via `_headers`, canonical URLs, an XML
+sitemap, and an SVG favicon. Beyond the Google Analytics 4 pair (the gtag.js loader and a same-origin,
+content-hashed bootstrap generated from `site.ga4MeasurementId` in `ue.config.js`) and the /scan tool's
+own script, the only `<script>` element on any page is a JSON-LD metadata block, which carries no code;
+`site/build.js` fails the build on any other script tag, and on a JSON-LD block whose payload was not
+escaped (see `site/build-guard.test.js`). Workers (ingest-cron, api,
 alerts) are deliberately **not** deployed — the daily ingest runs from `.github/workflows/ingest.yml` on
 GitHub Actions' own schedule, not from the Worker cron.
 

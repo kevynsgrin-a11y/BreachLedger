@@ -17,6 +17,38 @@ function jsonLd(objects) {
     .join('');
 }
 
+// Google Analytics 4. The CSP (site/build.js) allows no inline script, so the
+// gtag bootstrap ships as a same-origin, content-hashed file that the build
+// writes from ga4Bootstrap(), and each page carries exactly two external
+// script tags. The build guard admits those two exact shapes and nothing else.
+const GA4_ID = /^G-[A-Z0-9]{4,16}$/;
+
+function assertGa4Id(measurementId) {
+  if (!GA4_ID.test(measurementId || '')) throw new Error(`invalid GA4 measurement ID '${measurementId}'`);
+}
+
+function ga4Bootstrap(measurementId) {
+  assertGa4Id(measurementId);
+  return [
+    'window.dataLayer = window.dataLayer || [];',
+    'function gtag() { window.dataLayer.push(arguments); }',
+    'gtag("js", new Date());',
+    `gtag("config", "${measurementId}");`,
+    '',
+  ].join('\n');
+}
+
+// Emitted at the top of <head> so the tag is present early on every page.
+function ga4Tags(site, assets) {
+  const id = site.ga4MeasurementId;
+  if (!id || !assets['ga4.js']) return '';
+  assertGa4Id(id);
+  return (
+    `\n<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>` +
+    `\n<script async src="/assets/${assets['ga4.js']}"></script>`
+  );
+}
+
 function page({ site, title, description, content, route, assets = {}, structuredData = [], script = null }) {
   const stylesheet = assets['styles.css'] || 'styles.css';
   const fullTitle = route === '/' ? `${site.name} — ${site.tagline}` : `${title} — ${site.name}`;
@@ -56,7 +88,7 @@ function page({ site, title, description, content, route, assets = {}, structure
 <html lang="${site.language}">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1">${ga4Tags(site, assets)}
 <title>${escapeHtml(fullTitle)}</title>
 <meta name="description" content="${escapeHtml(description)}">${canonical}${social}${structured}
 <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
@@ -92,7 +124,11 @@ ${content}
     not a settlement administrator, and does not process or advise on claims. Nothing on this site is legal advice.</p>
     <p><a href="/about/">About</a> · <a href="/sources/">How this record is compiled</a> ·
     <a href="/corrections/">Corrections policy</a> · <a href="/privacy/">Privacy</a></p>
-    <p>This site sets no cookies, runs no analytics, and collects no data about its readers.</p>${
+    <p>${
+      site.ga4MeasurementId
+        ? 'This site uses Google Analytics to measure aggregate traffic; see <a href="/privacy/">Privacy</a>.'
+        : 'This site sets no cookies, runs no analytics, and collects no data about its readers.'
+    }</p>${
       site.publisher && site.publisher.name
         ? `
     <p class="publisher-line">Published by ${escapeHtml(site.publisher.name)}, ${escapeHtml(
@@ -107,4 +143,4 @@ ${script ? `<script src="${script}" defer></script>` : ''}
 </html>`;
 }
 
-module.exports = { page, jsonLd };
+module.exports = { page, jsonLd, ga4Bootstrap };
