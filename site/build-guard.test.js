@@ -82,3 +82,27 @@ test('the guard reports every problem it found, not just the first', () => {
     (e) => /missing doctype/.test(e.message) && /missing <title>/.test(e.message) && /zero-JS/.test(e.message)
   );
 });
+
+// --- the allowScript exception (the /scan tool) ---
+
+test('an allowScript page may load one fingerprinted /assets script', () => {
+  const html = shell('<script src="/assets/scan.0123456789.js" defer></script>');
+  assert.doesNotThrow(() => guardPage('/scan', html, { allowScript: true }));
+});
+
+test('an allowScript page with an inline script still fails', () => {
+  assert.throws(
+    () => guardPage('/scan', shell('<script>alert(1)</script>'), { allowScript: true }),
+    /exactly one fingerprinted/
+  );
+});
+
+test('an allowScript page loading a second script still fails', () => {
+  const html = shell('<script src="/assets/scan.0123456789.js" defer></script><script src="/assets/x.js"></script>');
+  assert.throws(() => guardPage('/scan', html, { allowScript: true }), /exactly one fingerprinted/);
+});
+
+test('an allowScript page loading a script from another origin still fails', () => {
+  const html = shell('<script src="https://evil.example/assets/scan.js"></script>');
+  assert.throws(() => guardPage('/scan', html, { allowScript: true }), /exactly one fingerprinted/);
+});

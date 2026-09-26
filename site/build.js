@@ -96,7 +96,7 @@ function guardPage(routePath, html, { allowScript = false } = {}) {
     problems.push('script tag in output — the site is zero-JS; this is unescaped data');
   }
   if (allowScript) {
-    const scripts = [...html.matchAll(/<script([^>]*)>/gi)].map((m) => m[1]);
+    const scripts = [...html.matchAll(/<script\b([^>]*)>/gi)].map((m) => m[1]);
     const offenders = scripts.filter((attrs) => !/src="\/assets\/[a-z0-9.-]+\.js"/i.test(attrs));
     if (scripts.length > 1 || offenders.length) {
       problems.push('allowScript pages may load exactly one fingerprinted /assets script');
