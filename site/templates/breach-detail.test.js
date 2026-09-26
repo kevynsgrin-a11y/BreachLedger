@@ -139,12 +139,15 @@ test('entity domain reputation renders only when the artifact covers the entity'
     domains: { 'changehealthcare.com': { reputation: 0, malicious: 0, suspicious: 0, harmless: 58, undetected: 31, fetchedAt: '2026-09-13T00:00:00Z' } },
     entities: { 'change healthcare': 'changehealthcare.com' },
   };
-  const covered = renderOne({}, sources, rep);
+  // The artifact keys entities by normalized (trimmed, lowercased) entity_name,
+  // so the covered case must render a record whose entity is in that map.
+  const coveredEntity = { entity_name: 'Change Healthcare' };
+  const covered = renderOne(coveredEntity, sources, rep);
   assert.match(covered, /Entity domain reputation/);
   assert.match(covered, /virustotal\.com\/gui\/domain\/changehealthcare\.com/);
   // A covered entity with a flagged verdict surfaces the flag strongly.
   const flagged = { ...rep, domains: { ...rep.domains, 'changehealthcare.com': { ...rep.domains['changehealthcare.com'], malicious: 3 } } };
-  assert.match(renderOne({}, sources, flagged), /3 of 92 engines currently flag/);
+  assert.match(renderOne(coveredEntity, sources, flagged), /3 of 92 engines currently flag/);
   // An entity outside the artifact renders no block and no invented data.
   const uncovered = renderOne({ entity_name: 'Unmapped Regional Clinic' }, sources, rep);
   assert.doesNotMatch(uncovered, /Entity domain reputation/);
