@@ -1,22 +1,29 @@
 # Privacy
 
-BreachBook collects no data about the people who read it.
+BreachBook measures its aggregate traffic with Google Analytics and collects nothing else about the
+people who read it.
 
 This site is published by Oak and Main Developers LLC, 2108 N St., Sacramento, CA 95816. Questions
 about this policy go to corrections@breachbook.org; see [about](/about/) for the publisher of record.
 
 ## What this site collects
 
-Nothing. There are no cookies, no analytics, no tracking pixels, no advertising, no embedded video,
-no web fonts, and no third-party scripts of any kind on any page. There are no accounts and no
-forms. Nothing on this site asks a reader for information, and nothing records what a reader looked
-at.
+Aggregate traffic measurement, and nothing else. Every page loads Google Analytics 4, which
+BreachBook uses to measure aggregate traffic: pages viewed, approximate location, and device.
+Google sets cookies (`_ga` and `_ga_*`) to do this and processes the data under
+[Google's privacy policy](https://policies.google.com/privacy). You can opt out with Google's
+[browser add-on](https://tools.google.com/dlpage/gaoptout) or any content blocker. Cloudflare Web
+Analytics also counts page views in aggregate; it sets no cookies.
 
-This is enforced, not merely intended. Every page is served with a Content-Security-Policy of
-`default-src 'none'`, which permits only same-origin styles, images, and the site's own manifest.
-A tracker added by mistake would be blocked by the browser before it could send anything. The site
-also ships no executable JavaScript at all: the build fails if a script tag other than a static
-metadata block reaches a page.
+There is no advertising, no tracking pixel, no embedded video, and no web fonts. There are no
+accounts, and nothing on this site asks a reader for personal information.
+
+This is enforced, not merely intended. Every page is served with a Content-Security-Policy that
+permits same-origin styles, images, and scripts, the site's own manifest, and, beyond that, only
+the Google Analytics and Cloudflare Web Analytics hosts. Any other tracker added by mistake would be
+blocked by the browser before it could send anything. The build fails if any script other than
+those analytics tags, a static metadata block, or the [scan tool](/scan/)'s own script reaches a
+page.
 
 ## What the server necessarily sees
 
@@ -49,12 +56,12 @@ nothing else: no profiling, no enrichment, no sale or sharing.
 ## Your rights
 
 Oak and Main Developers LLC operates from California, and this policy is written to meet the
-California Consumer Privacy Act as amended by the CPRA. Because no personal information is collected
-from readers, there is nothing held about a reader to access, correct, delete, or port, and nothing
-is sold or shared — including for cross-context behavioural advertising, which this site does not
-carry. A request under those rights can still be sent to corrections@breachbook.org and will be
-answered stating what is held, which today is nothing. If any of that ever ceases to be true, this
-page changes first.
+California Consumer Privacy Act as amended by the CPRA. BreachBook itself holds nothing about a
+reader to access, correct, delete, or port: the analytics identifiers described above are set by
+Google and held in Google Analytics. Nothing is sold, and the site carries no advertising, including
+cross-context behavioural advertising. A request under those rights can be sent to
+corrections@breachbook.org and will be answered stating what is held, including what Google
+Analytics holds for this site. If any of that ever ceases to be true, this page changes first.
 
 ## Corrections and contact
 

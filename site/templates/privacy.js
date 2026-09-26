@@ -2,7 +2,9 @@ const { page } = require('./layout');
 
 function render(ctx) {
   const { site, docs, renderMarkdown } = ctx;
-  const body = renderMarkdown(docs.privacy || '# Privacy\n\nThis site collects no data about its readers.');
+  const body = renderMarkdown(
+    docs.privacy || '# Privacy\n\nThis site measures aggregate traffic with Google Analytics and collects nothing else about its readers.'
+  );
   const content = `<article class="doc">${body}</article>`;
   return page({
     site,
@@ -10,7 +12,7 @@ function render(ctx) {
     route: '/privacy',
     title: 'Privacy',
     description:
-      'BreachBook collects no data about its readers: no cookies, no analytics, no tracking, no third-party scripts, enforced by the Content-Security-Policy served with every page.',
+      'BreachBook measures aggregate traffic with Google Analytics, which sets cookies, and collects nothing else about its readers: no advertising, no tracking pixels, no accounts.',
     content,
   });
 }

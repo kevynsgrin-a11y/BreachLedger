@@ -12,6 +12,7 @@ const ROOT = path.join(__dirname, '..');
 const config = require(path.join(ROOT, 'ue.config.js'));
 const { renderMarkdown } = require('./templates/markdown');
 const { pageCount } = require('./templates/breach-table');
+const { ga4Bootstrap } = require('./templates/layout');
 
 const OUT = path.join(ROOT, config.paths.out);
 const DATA = path.join(ROOT, config.paths.data);
@@ -82,21 +83,57 @@ const EMOJI_RE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B00}
 // fails outright. See site/build-guard.test.js.
 const LD_JSON_BLOCK = /<script type="application\/ld\+json">[^<]*<\/script>/g;
 
+// Google Analytics 4 (owner-approved): the only other scripts admitted, in the
+// exact form templates/layout.js emits them: the gtag.js loader from Google's
+// own origin with a well-formed measurement ID, and the same-origin,
+// content-hashed bootstrap file. Neither pattern admits any free text, and a
+// page may carry at most one of each, always as a pair. Inline script of any
+// kind still fails the build (and is refused by the CSP besides).
+const GA4_LOADER = /<script async src="https:\/\/www\.googletagmanager\.com\/gtag\/js\?id=G-[A-Z0-9]{4,16}"><\/script>/g;
+const GA4_BOOTSTRAP = /<script async src="\/assets\/ga4\.[a-f0-9]{10}\.js"><\/script>/g;
+
+// The Content-Security-Policy served with every page (written to _headers).
+// Same-origin assets, plus exactly the hosts Google Analytics 4 needs (gtag.js
+// loader, collect endpoints, pixel fallback) and Cloudflare Web Analytics'
+// beacon script and reporting endpoint. connect-src 'self' also covers
+// Cloudflare's same-origin /cdn-cgi/rum beacon post. No 'unsafe-inline', no
+// 'unsafe-eval', no scheme or bare wildcards.
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'none'",
+  "script-src 'self' https://www.googletagmanager.com https://static.cloudflareinsights.com",
+  "connect-src 'self' https://*.google-analytics.com https://*.analytics.google.com https://*.googletagmanager.com https://cloudflareinsights.com",
+  "img-src 'self' data: https://*.google-analytics.com https://*.googletagmanager.com",
+  "style-src 'self'",
+  // manifest-src is required explicitly: default-src 'none' otherwise
+  // blocks the web app manifest fetch, and the failure is silent.
+  "manifest-src 'self'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
 function guardPage(routePath, html, { allowScript = false } = {}) {
   const problems = [];
   if (!html.startsWith('<!doctype html>')) problems.push('missing doctype');
   if (!/<title>[^<]+<\/title>/.test(html)) problems.push('missing <title>');
   if (EMOJI_RE.test(html)) problems.push('emoji found — emoji-as-iconography is banned (spec section 10)');
-  // This site ships zero executable JavaScript. Any <script> tag other than a
-  // well-formed JSON-LD block means data reached the page unescaped — fail the
-  // build rather than publish it. One narrow exception: routes explicitly
-  // flagged allowScript (the /scan interactive tool) may load exactly one
-  // fingerprinted script from /assets — anything else still fails the build.
-  if (/<script/i.test(html.replace(LD_JSON_BLOCK, '')) && !allowScript) {
+  const gaLoaders = (html.match(GA4_LOADER) || []).length;
+  const gaBootstraps = (html.match(GA4_BOOTSTRAP) || []).length;
+  if (gaLoaders > 1 || gaBootstraps > 1 || gaLoaders !== gaBootstraps) {
+    problems.push('analytics: a page may carry one GA4 loader and one GA4 bootstrap, together, and no more');
+  }
+  const withoutAnalytics = html.replace(GA4_LOADER, '').replace(GA4_BOOTSTRAP, '');
+  // Apart from the analytics tags above, this site ships zero executable
+  // JavaScript. Any other <script> tag than a well-formed JSON-LD block means
+  // data reached the page unescaped — fail the build rather than publish it.
+  // One narrow exception: routes explicitly flagged allowScript (the /scan
+  // interactive tool) may load exactly one fingerprinted script from /assets
+  // — anything else still fails the build.
+  if (/<script/i.test(withoutAnalytics.replace(LD_JSON_BLOCK, '')) && !allowScript) {
     problems.push('script tag in output — the site is zero-JS; this is unescaped data');
   }
   if (allowScript) {
-    const scripts = [...html.matchAll(/<script([^>]*)>/gi)].map((m) => m[1]);
+    const scripts = [...withoutAnalytics.matchAll(/<script\b([^>]*)>/gi)].map((m) => m[1]);
     const offenders = scripts.filter((attrs) => !/src="\/assets\/[a-z0-9.-]+\.js"/i.test(attrs));
     if (scripts.length > 1 || offenders.length) {
       problems.push('allowScript pages may load exactly one fingerprinted /assets script');
@@ -155,6 +192,15 @@ function main() {
     }
     assetNames[f] = outName;
     fs.writeFileSync(path.join(assetOut, outName), content);
+  }
+  // GA4 bootstrap: generated from the configured measurement ID and written as
+  // a content-hashed same-origin file, because the CSP forbids inline script.
+  // templates/layout.js references it on every page via assets['ga4.js'].
+  if (config.site.ga4MeasurementId) {
+    const content = Buffer.from(ga4Bootstrap(config.site.ga4MeasurementId));
+    const hash = crypto.createHash('sha256').update(content).digest('hex').slice(0, 10);
+    assetNames['ga4.js'] = `ga4.${hash}.js`;
+    fs.writeFileSync(path.join(assetOut, assetNames['ga4.js']), content);
   }
 
   // Build-time D1 export (empty in Phase 0)
@@ -475,9 +521,10 @@ function main() {
       '',
     ].join('\n')
   );
-  // Security headers for Cloudflare Pages. The site ships zero JavaScript and
-  // one same-origin stylesheet, so the CSP can be maximally strict. Revisit
-  // style-src if a template ever needs an inline width (severity bars).
+  // Security headers for Cloudflare Pages. The CSP is CONTENT_SECURITY_POLICY
+  // above: one same-origin stylesheet, same-origin scripts (the GA4 bootstrap,
+  // /scan), and only the analytics hosts. Revisit style-src if a template ever
+  // needs an inline width (severity bars).
   fs.writeFileSync(
     path.join(OUT, '_headers'),
     [
@@ -486,9 +533,7 @@ function main() {
       '  X-Frame-Options: DENY',
       '  Referrer-Policy: strict-origin-when-cross-origin',
       '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
-      // manifest-src is required explicitly: default-src 'none' otherwise
-      // blocks the web app manifest fetch, and the failure is silent.
-      "  Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'self'; manifest-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'",
+      `  Content-Security-Policy: ${CONTENT_SECURITY_POLICY}`,
       '  Cross-Origin-Opener-Policy: same-origin',
       // 6 months, no preload: long enough to protect returning visitors,
       // short enough to back out of without a browser-list removal request.
@@ -518,4 +563,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { guardPage, publishableBreaches, EMOJI_RE, LD_JSON_BLOCK };
+module.exports = { guardPage, publishableBreaches, EMOJI_RE, LD_JSON_BLOCK, CONTENT_SECURITY_POLICY };

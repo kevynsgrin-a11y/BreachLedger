@@ -27,6 +27,12 @@ module.exports = {
       addressCountry: 'US',
       email: 'corrections@breachbook.org',
     },
+
+    // Google Analytics 4 measurement ID for this site's own GA4 property.
+    // Delivered in-page: templates/layout.js emits the gtag.js loader, and the
+    // build writes the bootstrap as a same-origin file (assets/ga4.<hash>.js)
+    // because the CSP allows no inline script. Disclosed on /privacy.
+    ga4MeasurementId: 'G-6KG8DVBHJG',
   },
 
   paths: {
