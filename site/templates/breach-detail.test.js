@@ -137,7 +137,7 @@ test('entity domain reputation renders only when the artifact covers the entity'
   const rep = {
     fetchedAt: '2026-09-13T00:00:00Z',
     domains: { 'changehealthcare.com': { reputation: 0, malicious: 0, suspicious: 0, harmless: 58, undetected: 31, fetchedAt: '2026-09-13T00:00:00Z' } },
-    entities: { 'change healthcare': 'changehealthcare.com' },
+    entities: { 'contoso health network': 'changehealthcare.com' },
   };
   const covered = renderOne({}, sources, rep);
   assert.match(covered, /Entity domain reputation/);
