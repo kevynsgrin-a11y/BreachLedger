@@ -56,7 +56,8 @@ function page({ site, title, description, content, route, assets = {}, structure
   // noindex set on the 404 and on any route the config flags (the /scan tool —
   // an interactive utility, not a record page search engines should rank).
   const indexable = route !== '/404' && route !== '/scan';
-  const canonical = indexable ? `\n<link rel="canonical" href="${url}">` : '\n<meta name="robots" content="noindex">';
+  const canonical = indexable ? `\n<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="${url}">` : '\n<meta name="robots" content="noindex">';
   // Link-preview metadata. One static site-wide image rather than a per-page
   // one: a shared card is a strict improvement over the bare text a link
   // previewed as before, and it cannot go stale against a record it does not
