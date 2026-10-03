@@ -508,6 +508,7 @@ function main() {
   // a citable public record; being quoted, referenced and surfaced serves that
   // purpose, and the underlying facts are government filings the site does not
   // own. To reverse it, add per-agent Disallow blocks above the wildcard.
+  fs.writeFileSync(path.join(OUT, 'd390aee0a606d453b3585684871efd3e.txt'), 'd390aee0a606d453b3585684871efd3e');
   fs.writeFileSync(
     path.join(OUT, 'robots.txt'),
     [
