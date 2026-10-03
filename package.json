@@ -2,7 +2,7 @@
   "name": "breachledger",
   "version": "1.0.0",
   "private": true,
-  "description": "BreachBook (breachbook.org) \u2014 a structured public record of disclosed U.S. data breaches, with a remediation engine and litigation tracking. Every published fact traces to a citable government or court source. The package/infrastructure name remains 'breachledger' from the original build.",
+  "description": "BreachBook (breachbook.org) — a structured public record of disclosed U.S. data breaches, with a remediation engine and litigation tracking. Every published fact traces to a citable government or court source. The package/infrastructure name remains 'breachledger' from the original build.",
   "type": "commonjs",
   "workspaces": [
     "packages/*",
@@ -19,7 +19,7 @@
     "provision": "node scripts/provision.js",
     "deploy": "npm test && npm run build && wrangler pages deploy dist --project-name breachledger --branch \"${PAGES_BRANCH:-main}\" --commit-dirty=true",
     "deploy:preview": "npm run build && wrangler pages deploy dist --project-name breachledger --branch preview --commit-dirty=true",
-    "test": "node --test packages/severity/score.test.js packages/ingest/entity-resolve.test.js packages/ingest/csv.test.js packages/ingest/slug.test.js packages/ingest/dedupe.test.js packages/ingest/validate.test.js packages/ingest/d1-writer.test.js packages/ingest/fetch-util.test.js packages/ingest/sql-injection.test.js packages/ingest/sources/hhs-jsf.test.js packages/ingest/sources/hhs-tabview.test.js packages/ingest/sources/hhs-ocr.test.js packages/ingest/sources/hhs-part2.test.js packages/ingest/sources/hhs-ocr-fetch.test.js packages/schema/sql.test.js packages/schema/seed/load.test.js site/build-guard.test.js site/theme-contrast.test.js site/templates/markdown.test.js site/templates/breach-detail.test.js site/templates/structured-data.test.js site/templates/breach-table.test.js site/templates/state-rights.test.js site/templates/remediation.test.js"
+    "test": "node --test packages/severity/score.test.js packages/ingest/entity-resolve.test.js packages/ingest/csv.test.js packages/ingest/slug.test.js packages/ingest/dedupe.test.js packages/ingest/validate.test.js packages/ingest/d1-writer.test.js packages/ingest/fetch-util.test.js packages/ingest/sql-injection.test.js packages/ingest/sources/hhs-jsf.test.js packages/ingest/sources/hhs-tabview.test.js packages/ingest/sources/hhs-ocr.test.js packages/ingest/sources/hhs-part2.test.js packages/ingest/sources/hhs-ocr-fetch.test.js packages/schema/sql.test.js packages/schema/seed/load.test.js site/build-guard.test.js site/theme-contrast.test.js site/templates/markdown.test.js site/templates/breach-detail.test.js site/templates/structured-data.test.js site/templates/breach-table.test.js site/templates/state-rights.test.js site/templates/remediation.test.js workers/routing.test.js"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"
