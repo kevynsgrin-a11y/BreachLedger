@@ -21,6 +21,8 @@ name: CI
 # demand; pushes to main are already covered by deploy.yml, which runs the same
 # suite before it publishes.
 on:
+  push:
+    branches: [main]
   pull_request:
   workflow_dispatch: {}
 
